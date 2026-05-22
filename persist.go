@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 
 	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/gjallarhorn/internal/ioutil2"
 	"github.com/oluies/neverlur/config"
 	"github.com/oluies/neverlur/errors"
-	"vuvuzela.io/internal/ioutil2"
 )
 
 type persistedState struct {
