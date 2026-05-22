@@ -18,16 +18,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"vuvuzela.io/alpenhorn/cmd/cmdutil"
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/edtls"
-	"vuvuzela.io/alpenhorn/encoding/toml"
-	"vuvuzela.io/alpenhorn/log"
-	"vuvuzela.io/vuvuzela/cmd/cmdconf"
-	"vuvuzela.io/vuvuzela/convo"
-	"vuvuzela.io/vuvuzela/internal/vzlog"
-	"vuvuzela.io/vuvuzela/mixnet"
-	pb "vuvuzela.io/vuvuzela/mixnet/convopb"
+	"github.com/oluies/gjallarhorn/cmd/cmdconf"
+	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/gjallarhorn/internal/vzlog"
+	"github.com/oluies/gjallarhorn/mixnet"
+	pb "github.com/oluies/gjallarhorn/mixnet/convopb"
+	"github.com/oluies/neverlur/cmd/cmdutil"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/edtls"
+	"github.com/oluies/neverlur/encoding/toml"
+	"github.com/oluies/neverlur/log"
 )
 
 var (

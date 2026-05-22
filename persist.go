@@ -2,16 +2,16 @@
 // Use of this source code is governed by the GNU AGPL
 // license that can be found in the LICENSE file.
 
-package vuvuzela
+package gjallarhorn
 
 import (
 	"encoding/json"
 	"io/ioutil"
 
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/errors"
+	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/errors"
 	"vuvuzela.io/internal/ioutil2"
-	"vuvuzela.io/vuvuzela/convo"
 )
 
 type persistedState struct {

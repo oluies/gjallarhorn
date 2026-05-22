@@ -1,0 +1,61 @@
+Gjallarhorn
+===========
+
+Gjallarhorn is a post-quantum fork of the Vuvuzela metadata-private messaging
+system.
+
+Upstream project
+----------------
+
+This codebase derives from:
+
+  Vuvuzela
+  https://github.com/vuvuzela/vuvuzela
+
+Original authors:
+
+  Copyright (c) 2015-2019 David Lazar
+  with contributions from Jelle van den Hooff, Nickolai Zeldovich,
+  and Matei Zaharia.
+
+Upstream paper: David Lazar et al., "Vuvuzela: Scalable Private Messaging
+Resistant to Traffic Analysis", SOSP 2015.
+https://davidlazar.org/papers/vuvuzela.pdf
+
+Fork
+----
+
+Gjallarhorn is maintained at https://github.com/oluies/gjallarhorn.
+The fork was created to migrate the system to post-quantum cryptographic
+primitives (hybrid X25519+ML-KEM-768 KEM, hybrid Ed25519+ML-DSA-65 signatures)
+while preserving the original mixnet design, threat model, and license.
+
+All files retained from the upstream project keep their original copyright
+notices ("Copyright 2015 David Lazar. All rights reserved.") and license
+headers. Modifications and new files carry their own copyright notices
+alongside the upstream notice where appropriate.
+
+License
+-------
+
+Gjallarhorn is distributed under the GNU Affero General Public License,
+version 3.0 (AGPL-3.0), the same license as upstream Vuvuzela.
+See the LICENSE file for the full license text.
+
+Related forks
+-------------
+
+  neverlur (fork of Alpenhorn, the friend-discovery service)
+  https://github.com/oluies/neverlur
+
+Third-party dependencies
+------------------------
+
+This project depends on third-party libraries with their own licenses,
+including:
+
+  - golang.org/x/crypto             BSD-3-Clause
+  - github.com/cloudflare/circl     BSD-3-Clause (planned, for PQ primitives)
+  - github.com/davidlazar/go-crypto Apache-2.0
+  - vuvuzela.io/crypto              AGPL-3.0
+  - vuvuzela.io/concurrency         AGPL-3.0

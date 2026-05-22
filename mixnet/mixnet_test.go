@@ -19,13 +19,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"vuvuzela.io/alpenhorn/errors"
-	"vuvuzela.io/alpenhorn/log"
+	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/gjallarhorn/internal/mock"
+	"github.com/oluies/gjallarhorn/mixnet"
+	"github.com/oluies/neverlur/errors"
+	"github.com/oluies/neverlur/log"
 	"vuvuzela.io/concurrency"
 	"vuvuzela.io/crypto/onionbox"
-	"vuvuzela.io/vuvuzela/convo"
-	"vuvuzela.io/vuvuzela/internal/mock"
-	"vuvuzela.io/vuvuzela/mixnet"
 )
 
 func TestMixnet(t *testing.T) {

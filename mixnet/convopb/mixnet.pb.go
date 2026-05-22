@@ -2,28 +2,30 @@
 // source: mixnet.proto
 
 /*
-	Package convopb is a generated protocol buffer package.
+Package convopb is a generated protocol buffer package.
 
-	We can't name this mixnetpb because it conflicts with
-	Alpenhorn's mixnetpb package.
+We can't name this mixnetpb because it conflicts with
+Alpenhorn's mixnetpb package.
 
-	It is generated from these files:
-		mixnet.proto
+It is generated from these files:
 
-	It has these top-level messages:
-		Nothing
-		NewRoundRequest
-		PublicServerConfig
-		NewRoundResponse
-		RoundSettings
-		SetRoundSettingsRequest
-		RoundSettingsSignature
-		AddOnionsRequest
-		CloseRoundRequest
-		CloseRoundResponse
-		GetOnionsRequest
-		GetOnionsResponse
-		DeleteRoundRequest
+	mixnet.proto
+
+It has these top-level messages:
+
+	Nothing
+	NewRoundRequest
+	PublicServerConfig
+	NewRoundResponse
+	RoundSettings
+	SetRoundSettingsRequest
+	RoundSettingsSignature
+	AddOnionsRequest
+	CloseRoundRequest
+	CloseRoundResponse
+	GetOnionsRequest
+	GetOnionsResponse
+	DeleteRoundRequest
 */
 package convopb
 

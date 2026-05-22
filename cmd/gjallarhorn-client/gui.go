@@ -16,11 +16,11 @@ import (
 	"github.com/davidlazar/go-crypto/encoding/base32"
 	"github.com/jroimartin/gocui"
 
-	"vuvuzela.io/alpenhorn"
-	"vuvuzela.io/alpenhorn/log"
-	"vuvuzela.io/alpenhorn/log/ansi"
-	"vuvuzela.io/vuvuzela"
-	"vuvuzela.io/vuvuzela/convo"
+	"github.com/oluies/gjallarhorn"
+	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/neverlur"
+	"github.com/oluies/neverlur/log"
+	"github.com/oluies/neverlur/log/ansi"
 )
 
 const NumOutgoing = 5
@@ -29,7 +29,7 @@ type GuiClient struct {
 	myName string
 
 	gui             *gocui.Gui
-	convoClient     *vuvuzela.Client
+	convoClient     *gjallarhorn.Client
 	alpenhornClient *alpenhorn.Client
 
 	mu            sync.Mutex

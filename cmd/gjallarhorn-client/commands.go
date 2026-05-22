@@ -17,8 +17,8 @@ import (
 	"github.com/davidlazar/go-crypto/encoding/base32"
 	"github.com/jroimartin/gocui"
 
-	"vuvuzela.io/alpenhorn"
-	"vuvuzela.io/alpenhorn/log/ansi"
+	"github.com/oluies/neverlur"
+	"github.com/oluies/neverlur/log/ansi"
 )
 
 type Command struct {

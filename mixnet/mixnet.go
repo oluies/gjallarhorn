@@ -25,14 +25,14 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"vuvuzela.io/alpenhorn/edtls"
-	"vuvuzela.io/alpenhorn/errors"
-	"vuvuzela.io/alpenhorn/log"
+	pb "github.com/oluies/gjallarhorn/mixnet/convopb"
+	"github.com/oluies/neverlur/edtls"
+	"github.com/oluies/neverlur/errors"
+	"github.com/oluies/neverlur/log"
 	"vuvuzela.io/concurrency"
 	"vuvuzela.io/crypto/onionbox"
 	"vuvuzela.io/crypto/rand"
 	"vuvuzela.io/crypto/shuffle"
-	pb "vuvuzela.io/vuvuzela/mixnet/convopb"
 )
 
 // Use github.com/davidlazar/easyjson:

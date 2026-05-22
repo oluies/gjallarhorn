@@ -14,11 +14,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"vuvuzela.io/alpenhorn"
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/errors"
-	"vuvuzela.io/alpenhorn/log"
-	"vuvuzela.io/vuvuzela"
+	"github.com/oluies/gjallarhorn"
+	"github.com/oluies/neverlur"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/errors"
+	"github.com/oluies/neverlur/log"
 )
 
 var username = flag.String("username", "", "Alpenhorn username")
@@ -86,11 +86,11 @@ func LoadAlpenhornState(confHome string, username string) (client *alpenhorn.Cli
 	return
 }
 
-func LoadVuvuzelaState(confHome string, username string) (client *vuvuzela.Client, new bool) {
+func LoadVuvuzelaState(confHome string, username string) (client *gjallarhorn.Client, new bool) {
 	vzStatePath := filepath.Join(confHome, fmt.Sprintf("%s-vuvuzela-client-state", username))
 
 	var err error
-	client, err = vuvuzela.LoadClient(vzStatePath)
+	client, err = gjallarhorn.LoadClient(vzStatePath)
 	if os.IsNotExist(err) {
 		client, err = generateVuvuzelaClient(vzStatePath)
 		if err != nil {
@@ -148,13 +148,13 @@ func generateAlpenhornClient(username string, alpStatePath string, keywheelPath 
 	return client, nil
 }
 
-func generateVuvuzelaClient(clientPath string) (*vuvuzela.Client, error) {
+func generateVuvuzelaClient(clientPath string) (*gjallarhorn.Client, error) {
 	convoConfig, err := config.StdClient.CurrentConfig("Convo")
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest convo config")
 	}
 
-	client := &vuvuzela.Client{
+	client := &gjallarhorn.Client{
 		PersistPath: clientPath,
 	}
 	err = client.Bootstrap(convoConfig)

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"vuvuzela.io/alpenhorn/pkg"
+	"github.com/oluies/neverlur/pkg"
 )
 
 func (gc *GuiClient) Connect() {

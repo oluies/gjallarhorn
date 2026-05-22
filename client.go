@@ -2,7 +2,7 @@
 // Use of this source code is governed by the GNU AGPL
 // license that can be found in the LICENSE file.
 
-package vuvuzela
+package gjallarhorn
 
 import (
 	"crypto/ed25519"
@@ -14,13 +14,13 @@ import (
 	"github.com/davidlazar/go-crypto/encoding/base32"
 	"golang.org/x/crypto/nacl/box"
 
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/errors"
-	"vuvuzela.io/alpenhorn/typesocket"
+	"github.com/oluies/gjallarhorn/convo"
+	"github.com/oluies/gjallarhorn/coordinator"
+	"github.com/oluies/gjallarhorn/mixnet"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/errors"
+	"github.com/oluies/neverlur/typesocket"
 	"vuvuzela.io/crypto/onionbox"
-	"vuvuzela.io/vuvuzela/convo"
-	"vuvuzela.io/vuvuzela/coordinator"
-	"vuvuzela.io/vuvuzela/mixnet"
 )
 
 type Client struct {

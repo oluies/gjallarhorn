@@ -7,9 +7,9 @@ package main
 import (
 	"regexp"
 
-	"vuvuzela.io/alpenhorn"
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/log"
+	"github.com/oluies/neverlur"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/log"
 )
 
 func (gc *GuiClient) Error(err error) {

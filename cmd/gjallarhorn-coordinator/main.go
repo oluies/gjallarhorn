@@ -13,14 +13,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"vuvuzela.io/alpenhorn/cmd/cmdutil"
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/alpenhorn/edtls"
-	"vuvuzela.io/alpenhorn/encoding/toml"
-	"vuvuzela.io/alpenhorn/log"
-	"vuvuzela.io/vuvuzela/cmd/cmdconf"
-	"vuvuzela.io/vuvuzela/coordinator"
-	"vuvuzela.io/vuvuzela/internal/vzlog"
+	"github.com/oluies/gjallarhorn/cmd/cmdconf"
+	"github.com/oluies/gjallarhorn/coordinator"
+	"github.com/oluies/gjallarhorn/internal/vzlog"
+	"github.com/oluies/neverlur/cmd/cmdutil"
+	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/edtls"
+	"github.com/oluies/neverlur/encoding/toml"
+	"github.com/oluies/neverlur/log"
 )
 
 var (
