@@ -14,8 +14,8 @@ import (
 
 	"github.com/davidlazar/go-crypto/encoding/base32"
 
-	"vuvuzela.io/alpenhorn/config"
-	"vuvuzela.io/vuvuzela/mixnet"
+	"github.com/oluies/gjallarhorn/mixnet"
+	"github.com/oluies/neverlur/config"
 )
 
 func TestMarshalConvoConfig(t *testing.T) {

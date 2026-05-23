@@ -8,8 +8,8 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"vuvuzela.io/alpenhorn/errors"
-	pb "vuvuzela.io/vuvuzela/mixnet/convopb"
+	pb "github.com/oluies/gjallarhorn/mixnet/convopb"
+	"github.com/oluies/neverlur/errors"
 )
 
 type RoundSettings struct {

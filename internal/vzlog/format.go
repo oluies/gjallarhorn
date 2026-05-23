@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"vuvuzela.io/alpenhorn/log"
+	"github.com/oluies/neverlur/log"
 )
 
 type ProductionOutput struct {

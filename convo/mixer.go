@@ -10,9 +10,9 @@ import (
 
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/oluies/gjallarhorn/mixnet"
 	"vuvuzela.io/concurrency"
 	"vuvuzela.io/crypto/rand"
-	"vuvuzela.io/vuvuzela/mixnet"
 )
 
 const (

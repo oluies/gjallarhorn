@@ -11,7 +11,7 @@ import (
 	"text/template"
 	"time"
 
-	"vuvuzela.io/alpenhorn/encoding/toml"
+	"github.com/oluies/neverlur/encoding/toml"
 	"vuvuzela.io/crypto/rand"
 )
 
