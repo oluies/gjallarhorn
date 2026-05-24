@@ -7,6 +7,20 @@ go 1.25.0
 // builds work without depending on the vanity redirector. Mirrors the
 // equivalent block in github.com/oluies/neverlur's go.mod.
 replace (
+	// vuvuzela.io/alpenhorn is no longer used by any Gjallarhorn Go
+	// file (the rebrand moved every consumer to
+	// github.com/oluies/neverlur). It is, however, a transitive
+	// requirement of the inherited vuvuzela.io/vuvuzela module, so
+	// the replace stays to point it at the pre-rebrand Vuvuzela fork
+	// snapshot — the vanity domain is unreachable, and we cannot
+	// alias it as github.com/oluies/neverlur because Go forbids the
+	// same module being used for two paths.
+	//
+	// Workspace mode (per docs/local-development.md) overrides this
+	// with a workspace-level `replace vuvuzela.io/alpenhorn => ./neverlur`
+	// in go.work to avoid the cross-repo `replace` conflict against
+	// Neverlur's own `replace vuvuzela.io/alpenhorn => ./`.
+	// See specs/001-conversation-wiring/research.md R2.
 	vuvuzela.io/alpenhorn => github.com/vuvuzela/alpenhorn v0.0.0-20190912152808-6b33518f681e
 	vuvuzela.io/concurrency => github.com/vuvuzela/concurrency v0.0.0-20190327123758-e608f351e310
 	vuvuzela.io/crypto => github.com/vuvuzela/crypto v0.0.0-20220523120157-1709ed3a3b66

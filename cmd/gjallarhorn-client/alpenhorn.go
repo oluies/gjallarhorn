@@ -33,25 +33,25 @@ func (gc *GuiClient) DebugError(err error) {
 	}
 }
 
-func (gc *GuiClient) ConfirmedFriend(f *alpenhorn.Friend) {
+func (gc *GuiClient) ConfirmedFriend(f *neverlur.Friend) {
 	gc.WarnfSync("Confirmed friend: %s\n", f.Username)
 }
 
-func (gc *GuiClient) SentFriendRequest(r *alpenhorn.OutgoingFriendRequest) {
+func (gc *GuiClient) SentFriendRequest(r *neverlur.OutgoingFriendRequest) {
 	gc.WarnfSync("Sent friend request: %s\n", r.Username)
 }
 
-func (gc *GuiClient) ReceivedFriendRequest(r *alpenhorn.IncomingFriendRequest) {
+func (gc *GuiClient) ReceivedFriendRequest(r *neverlur.IncomingFriendRequest) {
 	gc.WarnfSync("Received friend request: %s\n", r.Username)
 	gc.WarnfSync("Type `/approve %s` to approve the friend request.\n", r.Username)
 	notify("Friend request from %s", r.Username)
 }
 
-func (gc *GuiClient) UnexpectedSigningKey(in *alpenhorn.IncomingFriendRequest, out *alpenhorn.OutgoingFriendRequest) {
+func (gc *GuiClient) UnexpectedSigningKey(in *neverlur.IncomingFriendRequest, out *neverlur.OutgoingFriendRequest) {
 	gc.WarnfSync("Unexpected signing key: %s\n", in.Username)
 }
 
-func (gc *GuiClient) SendingCall(call *alpenhorn.OutgoingCall) {
+func (gc *GuiClient) SendingCall(call *neverlur.OutgoingCall) {
 	convo := gc.getOrCreateConvo(call.Username)
 	round, err := gc.convoClient.LatestRound()
 	if err != nil {
@@ -75,7 +75,7 @@ func (gc *GuiClient) SendingCall(call *alpenhorn.OutgoingCall) {
 	}
 }
 
-func (gc *GuiClient) ReceivedCall(call *alpenhorn.IncomingCall) {
+func (gc *GuiClient) ReceivedCall(call *neverlur.IncomingCall) {
 	convo := gc.getOrCreateConvo(call.Username)
 	convo.WarnfSync("Received call: %s\n", call.Username)
 	notify("Call from %s", call.Username)
