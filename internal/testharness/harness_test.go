@@ -10,19 +10,14 @@ import (
 	"github.com/oluies/neverlur/config"
 )
 
-// TestHarnessScaffold confirms the parts of the scaffold that ARE
-// implemented (config generation, identity binding) work correctly.
-// The parts that are documented TODOs (server orchestration, round
-// driving, real client wiring) are NOT exercised here.
+// TestHarnessBringup confirms the full harness stand-up succeeds: the
+// harness guardian's binding holds, all three v2 SignedConfigs are
+// present and self-verify, and both the Neverlur and Gjallarhorn
+// coordinators are populated (non-nil) after New() returns.
 //
-// This test also runs on arm64 because it doesn't transitively pull
-// bn256 — it only touches the harness guardian + signed configs.
-//
-// Wait — actually it imports neverlur/config which DOES transit bls/bn256
-// via mixnet.PublicServerConfig in the inner-config types. So this test
-// is linux/amd64-only via CI. The harness package itself can be vetted
-// on arm64 (`go vet ./internal/testharness/`) but tests can't run.
-func TestHarnessScaffold(t *testing.T) {
+// Runs in CI on linux/amd64. Cannot run on arm64 (transitively
+// pulls vuvuzela.io/crypto/bn256 via bls).
+func TestHarnessBringup(t *testing.T) {
 	h := New(t)
 	if h == nil {
 		t.Fatal("New returned nil")
@@ -54,22 +49,54 @@ func TestHarnessScaffold(t *testing.T) {
 		}
 	}
 
-	// Scaffold contract: New returns; servers are nil; AdvanceRound
-	// errors with the documented scaffold message.
-	if h.NeverlurCoordinator != nil {
-		t.Error("expected scaffold: NeverlurCoordinator should be nil")
+	// Server fields must be populated after bringup.
+	if h.NeverlurCoordinator == nil {
+		t.Error("NeverlurCoordinator is nil after New (should be running)")
 	}
-	if h.GjallarhornCoordinator != nil {
-		t.Error("expected scaffold: GjallarhornCoordinator should be nil")
+	if h.GjallarhornCoordinator == nil {
+		t.Error("GjallarhornCoordinator is nil after New (should be running)")
 	}
-	if err := h.AdvanceRound("AddFriend"); err == nil {
-		t.Error("expected AdvanceRound to error in scaffold mode")
+	if len(h.NeverlurMixers) == 0 {
+		t.Error("NeverlurMixers is empty (expected 1 mixchain handle)")
+	}
+	if h.NeverlurPKG.PKG == nil {
+		t.Error("NeverlurPKG.PKG is nil")
+	}
+	if h.NeverlurCDN.CDN == nil {
+		t.Error("NeverlurCDN.CDN is nil")
+	}
+	if h.GjallarhornConvoMixers == nil || len(h.GjallarhornConvoMixers.Servers) == 0 {
+		t.Error("GjallarhornConvoMixers has no servers")
 	}
 }
 
-// TestHarnessScaffoldUnknownService asserts AdvanceRound errors
+// TestHarnessClientFor confirms ClientFor produces a TestClient with
+// a real *neverlur.Client and a freshly bound hybrid identity. Does
+// NOT exercise the full registration round-trip end-to-end (that's
+// Phase 3); just confirms the client is constructable.
+func TestHarnessClientFor(t *testing.T) {
+	h := New(t)
+	tc := h.ClientFor(t, "alice@harness.test")
+	if tc == nil {
+		t.Fatal("ClientFor returned nil")
+	}
+	if tc.Client == nil {
+		t.Fatal("TestClient.Client is nil")
+	}
+	if tc.Username != "alice@harness.test" {
+		t.Errorf("Username = %q, want alice@harness.test", tc.Username)
+	}
+	if tc.HybridIdentity == nil {
+		t.Fatal("HybridIdentity is nil")
+	}
+	if err := tc.HybridIdentity.VerifyBinding(); err != nil {
+		t.Errorf("HybridIdentity binding: %v", err)
+	}
+}
+
+// TestAdvanceRoundUnknownService asserts AdvanceRound errors
 // distinguishably for an unknown service name.
-func TestHarnessScaffoldUnknownService(t *testing.T) {
+func TestAdvanceRoundUnknownService(t *testing.T) {
 	h := New(t)
 	err := h.AdvanceRound("Unknown")
 	if err == nil {
