@@ -169,23 +169,74 @@ func (tc *TestClient) StartConvo() (<-chan error, error) {
 	return tc.ConvoClient.ConnectConvo()
 }
 
-// bootstrapClient injects the AddFriend + Dialing SignedConfigs into
-// the client's local state without going through the on-disk persist
-// path. Real production clients fetch these via the ConfigClient on
-// first Connect; for tests we inject them directly so the integration
-// test doesn't have to wait for the first round.
+// Start connects every websocket the TestClient owns: AddFriend +
+// Dialing on the Neverlur side, Convo on the Gjallarhorn side. The
+// returned Disconnects channel emits per-service errors as each
+// websocket eventually closes; callers fail the test on any return
+// from Start itself and inspect Disconnects only if a websocket
+// drops mid-test.
 //
-// Phase 3 may need to extend this to also bootstrap the Convo config
-// for the Gjallarhorn-side client wiring.
+// Idiomatic use:
+//
+//	disconnects, err := alice.Start()
+//	if err != nil { t.Fatalf("alice Start: %v", err) }
+//	defer alice.Stop()
+//	... test body ...
+func (tc *TestClient) Start() (disconnects <-chan ConnectError, err error) {
+	out := make(chan ConnectError, 8)
+
+	afCh, err := tc.Client.ConnectAddFriend()
+	if err != nil {
+		return nil, wrap("Start: ConnectAddFriend", err)
+	}
+	dlCh, err := tc.Client.ConnectDialing()
+	if err != nil {
+		_ = tc.Client.CloseAddFriend()
+		return nil, wrap("Start: ConnectDialing", err)
+	}
+	cvCh, err := tc.ConvoClient.ConnectConvo()
+	if err != nil {
+		_ = tc.Client.CloseAddFriend()
+		_ = tc.Client.CloseDialing()
+		return nil, wrap("Start: ConnectConvo", err)
+	}
+
+	go forwardDisconnect("AddFriend", afCh, out)
+	go forwardDisconnect("Dialing", dlCh, out)
+	go forwardDisconnect("Convo", cvCh, out)
+
+	return out, nil
+}
+
+// Stop closes every websocket Start opened. Idempotent.
+func (tc *TestClient) Stop() {
+	_ = tc.Client.CloseAddFriend()
+	_ = tc.Client.CloseDialing()
+	_ = tc.ConvoClient.CloseConvo()
+}
+
+// ConnectError pairs a service name with the disconnect error so
+// integration tests can pinpoint which side failed.
+type ConnectError struct {
+	Service string
+	Err     error
+}
+
+func forwardDisconnect(service string, in <-chan error, out chan<- ConnectError) {
+	for err := range in {
+		select {
+		case out <- ConnectError{Service: service, Err: err}:
+		default:
+		}
+	}
+}
+
+// bootstrapClient injects the AddFriend + Dialing SignedConfigs into
+// the client's local state. neverlur.Client.Bootstrap requires both
+// configs before ConnectAddFriend / ConnectDialing will succeed
+// (they check c.addFriendConfig != nil before dialing).
 func bootstrapClient(c *neverlur.Client, addFriend, dialing *config.SignedConfig) error {
-	// neverlur.Client doesn't expose a direct config-injection API;
-	// the ConfigClient's CurrentConfig() reads from the harness's
-	// in-memory config server, so the standard ConnectAddFriend /
-	// ConnectDialing methods will pick them up. No explicit injection
-	// needed.
-	_ = addFriend
-	_ = dialing
-	return nil
+	return c.Bootstrap(addFriend, dialing)
 }
 
 // SendMessage queues a plaintext message for the next outgoing convo
