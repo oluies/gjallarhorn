@@ -61,6 +61,13 @@ func TestNoClassicalSessionKey(t *testing.T) {
 			continue
 		}
 		fset := token.NewFileSet()
+		// parser.ParseDir is "deprecated" because it doesn't honor
+		// build tags. For a pure-name AST scan over a small file set,
+		// build tags don't matter — every banned identifier is a
+		// violation regardless of which build it would appear in.
+		// Using go/packages.Load here would pull in a heavier
+		// type-checking pipeline for no gain.
+		//nolint:staticcheck // SA1019: ParseDir is sufficient for this name-only scan
 		pkgs, err := parser.ParseDir(fset, abs, func(_ fs.FileInfo) bool {
 			return true
 		}, parser.ParseComments)
