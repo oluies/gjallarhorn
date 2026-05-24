@@ -35,16 +35,25 @@
 //     binding status, mixchain composition, hybrid-identity binding
 //     for each client).
 //
-//  4. Holds for 5 seconds so the user can observe coordinator log
-//     output, then shuts down cleanly.
+//  4. Calls Start() on both clients to bring up AddFriend + Dialing
+//     + Convo websockets.
+//
+//  5. Drives a real scripted conversation:
+//     a. alice.SendFriendRequest(bob.Username, nil)
+//     b. bob receives, calls Approve()
+//     c. wait for ConfirmedFriend on both sides
+//     d. alice.GetFriend(bob).Call(0) to bootstrap conversation
+//     e. wait for ConvoState bootstrapped on both sides
+//     f. alice.SendMessage("hello bob ...")
+//     g. wait for bob.RecvCh; assert plaintext matches
+//
+//  6. Prints success, shuts down cleanly via deferred Stop+Close.
+//
+// Total runtime: ~60-120 seconds depending on coordinator round
+// timings (AddFriend RoundWait=2s, Dialing RoundWait=2s, Convo
+// RoundDelay=2s; each handshake needs multiple rounds).
 //
 // Limits:
-//
-//   - Does NOT (yet) run a real add-friend / dial / message round-
-//     trip. The harness end-to-end path is blocked on the same two
-//     upstream items as e2e/first_message_test.go — coordinator data
-//     race fix + TestClient.Start() helper. When those land, this
-//     binary will grow a "step 5: scripted conversation" section.
 //
 //   - bn256-related limitations apply: must be run on linux/amd64.
 //     Apple Silicon builds will fail in the inherited bls/bn256
@@ -52,6 +61,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -134,14 +144,105 @@ func main() {
 	log.Printf("    Alice ed25519 pub: %x...", alice.HybridIdentity.EdPub[:8])
 	log.Printf("    Bob   ed25519 pub: %x...", bob.HybridIdentity.EdPub[:8])
 
+	log.Print("==> starting both clients (AddFriend + Dialing + Convo websockets)")
+	aliceDisc, err := alice.Start()
+	if err != nil {
+		log.Fatalf("alice.Start: %v", err)
+	}
+	bobDisc, err := bob.Start()
+	if err != nil {
+		log.Fatalf("bob.Start: %v", err)
+	}
+	defer alice.Stop()
+	defer bob.Stop()
+	go drainDisconnects("alice", aliceDisc)
+	go drainDisconnects("bob", bobDisc)
+
+	log.Print("==> alice -> bob: SendFriendRequest")
+	if _, err := alice.SendFriendRequest(bob.Username, nil); err != nil {
+		log.Fatalf("SendFriendRequest: %v", err)
+	}
+
+	log.Print("==> waiting for bob to receive friend request (up to 60s)")
+	select {
+	case req := <-bob.IncomingFriendRequestCh():
+		log.Printf("    bob received from: %s", req.Username)
+		log.Print("==> bob: Approve")
+		if _, err := req.Approve(); err != nil {
+			log.Fatalf("Approve: %v", err)
+		}
+	case <-time.After(60 * time.Second):
+		log.Fatal("bob never received friend request within 60s")
+	}
+
+	log.Print("==> waiting for both sides to see ConfirmedFriend (up to 60s)")
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if alice.HasFriend(bob.Username) && bob.HasFriend(alice.Username) {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if !alice.HasFriend(bob.Username) || !bob.HasFriend(alice.Username) {
+		log.Fatalf("friendship not confirmed within 60s (alice has bob=%v, bob has alice=%v)",
+			alice.HasFriend(bob.Username), bob.HasFriend(alice.Username))
+	}
+	log.Print("    friendship confirmed on both sides")
+
+	log.Print("==> alice: dial bob (intent 0)")
+	f := alice.GetFriend(bob.Username)
+	if f == nil {
+		log.Fatalf("alice has no friend object for bob despite HasFriend=true")
+	}
+	_ = f.Call(0)
+
+	log.Print("==> waiting for ConvoState to bootstrap on both sides (up to 60s)")
+	deadline = time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if alice.ConvoState != nil && bob.ConvoState != nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if alice.ConvoState == nil || bob.ConvoState == nil {
+		log.Fatalf("ConvoState not bootstrapped within 60s (alice=%v bob=%v)",
+			alice.ConvoState != nil, bob.ConvoState != nil)
+	}
+	log.Printf("    alice ConvoState round=%d peer=%s", alice.ConvoState.Round(), alice.ConvoState.PeerUsername())
+	log.Printf("    bob   ConvoState round=%d peer=%s", bob.ConvoState.Round(), bob.ConvoState.PeerUsername())
+
+	body := []byte("hello bob — sealed via NaCl secretbox with key derived from hybrid X25519+ML-KEM-768 keywheel")
+	log.Printf("==> alice: SendMessage (%d bytes)", len(body))
+	if err := alice.SendMessage(body); err != nil {
+		log.Fatalf("SendMessage: %v", err)
+	}
+
+	log.Print("==> waiting for bob to receive (up to 30s)")
+	select {
+	case msg := <-bob.RecvCh:
+		if !bytes.Equal(msg.Body, body) {
+			log.Fatalf("body mismatch: got %q want %q", msg.Body, body)
+		}
+		log.Printf("    bob received round=%d from=%s body=%q", msg.Round, msg.FromPeer, msg.Body)
+	case <-time.After(30 * time.Second):
+		log.Fatal("bob never received the message")
+	}
+
 	fmt.Println()
-	fmt.Println("==> demo: harness bring-up + dual hybrid-identity registration COMPLETE")
-	fmt.Println()
-	fmt.Println("    Next step (blocked, see e2e/first_message_test.go for unblocking criteria):")
-	fmt.Println("    Drive a real add-friend → dial → first-message round-trip.")
+	fmt.Println("==> demo: full pipeline COMPLETE")
+	fmt.Println("    add-friend handshake → dial → first-message round-trip succeeded")
+	fmt.Println("    Session key derived from hybrid combiner (X25519 + ML-KEM-768)")
 	fmt.Println()
 
-	log.Print("==> holding 5s so coordinator logs can stream...")
-	time.Sleep(5 * time.Second)
 	log.Print("==> shutting down")
+}
+
+// drainDisconnects logs any per-service websocket close events.
+// Each TestClient.Start() returns a channel that fires when one of
+// the three (AddFriend / Dialing / Convo) websockets drops; in the
+// demo we just log them and keep going.
+func drainDisconnects(who string, ch <-chan testharness.ConnectError) {
+	for ce := range ch {
+		log.Printf("    [%s] %s websocket disconnected: %v", who, ce.Service, ce.Err)
+	}
 }
