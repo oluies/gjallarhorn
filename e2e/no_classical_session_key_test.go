@@ -10,6 +10,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -60,7 +61,7 @@ func TestNoClassicalSessionKey(t *testing.T) {
 			continue
 		}
 		fset := token.NewFileSet()
-		pkgs, err := parser.ParseDir(fset, abs, func(_ token.Position, _ string) bool {
+		pkgs, err := parser.ParseDir(fset, abs, func(_ fs.FileInfo) bool {
 			return true
 		}, parser.ParseComments)
 		if err != nil {
