@@ -34,7 +34,7 @@ require (
 	github.com/gen2brain/beeep v0.11.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/jroimartin/gocui v0.5.0
-	github.com/oluies/neverlur v0.0.0-20260524082542-4658aac559bb
+	github.com/oluies/neverlur v0.0.0-20260524150158-7d757452f7e6
 	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
 	google.golang.org/grpc v1.81.1

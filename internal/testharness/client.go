@@ -11,16 +11,26 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/oluies/gjallarhorn"
+	"github.com/oluies/gjallarhorn/convo"
 	"github.com/oluies/neverlur"
 	"github.com/oluies/neverlur/config"
 	"github.com/oluies/neverlur/hybrid"
 )
 
-// TestClient is the harness-managed wrapper around *neverlur.Client.
-// Embeds the client so all standard methods are available; adds
-// IdentityFor* and RecvCh helpers for the integration test.
+// TestClient is the harness-managed wrapper around the dual
+// (Neverlur + Gjallarhorn) client pair. The Neverlur client handles
+// AddFriend + Dialing; the Gjallarhorn client handles the Convo
+// websocket. They are intentionally held as separate fields rather
+// than embedded twice to keep the call sites unambiguous.
 type TestClient struct {
 	*neverlur.Client
+
+	// ConvoClient is the Gjallarhorn-side conversation client. It
+	// owns the websocket to the Convo coordinator. Connected lazily
+	// via StartConvo() once the AddFriend handshake has bootstrapped
+	// the dialing layer.
+	ConvoClient *gjallarhorn.Client
 
 	// Username is the PKG-registered username.
 	Username string
@@ -37,8 +47,13 @@ type TestClient struct {
 
 	// ConvoState is the conversation-layer state for the current
 	// active conversation. Populated by SendingCall / ReceivedCall
-	// handler callbacks; nil until a call bootstraps.
+	// handler callbacks once a call bootstraps; nil before.
 	ConvoState ConvoStateAccessor
+
+	// convoHandler routes Outgoing()/Replies()/Error() events from
+	// the Gjallarhorn convo client back into this TestClient's
+	// channels and outgoing message queue.
+	convoHandler *testClientConvoHandler
 
 	// internal channels populated by the handler callbacks below.
 	recvCh      chan IncomingMessage
@@ -106,6 +121,7 @@ func (h *Harness) ClientFor(tb testing.TB, username string) *TestClient {
 		errCh:          make(chan error, 16),
 	}
 	tc.RecvCh = tc.recvCh
+	tc.convoHandler = &testClientConvoHandler{tc: tc}
 
 	clientDir := tb.TempDir()
 	c := &neverlur.Client{
@@ -134,7 +150,24 @@ func (h *Harness) ClientFor(tb testing.TB, username string) *TestClient {
 		return nil
 	}
 
+	// Gjallarhorn-side convo client. Not connected until
+	// StartConvo() is called by the test (the websocket only
+	// makes sense after AddFriend + dial have run).
+	tc.ConvoClient = &gjallarhorn.Client{
+		PersistPath:  filepath.Join(clientDir, "convo-client"),
+		ConfigClient: h.neverlurCfgClient,
+		Handler:      tc.convoHandler,
+	}
+
 	return tc
+}
+
+// StartConvo connects the underlying Gjallarhorn convo client to the
+// Convo coordinator's websocket. Call once after the AddFriend +
+// dial handshakes have established a ConvoState. The returned
+// channel emits a value (closed) when the websocket disconnects.
+func (tc *TestClient) StartConvo() (<-chan error, error) {
+	return tc.ConvoClient.ConnectConvo()
 }
 
 // bootstrapClient injects the AddFriend + Dialing SignedConfigs into
@@ -156,14 +189,16 @@ func bootstrapClient(c *neverlur.Client, addFriend, dialing *config.SignedConfig
 	return nil
 }
 
-// SendMessage validates a message at the input boundary (length,
-// UTF-8) and submits it through the active Conversation. Matches the
-// demo CLI's validation surface.
+// SendMessage queues a plaintext message for the next outgoing convo
+// round. Validates the input boundary (length, UTF-8, max size).
+// Returns nil if accepted into the queue; the caller must call
+// AdvanceRound (or wait for the natural Convo round tick) to see
+// the message actually depart the mixer.
 //
-// TODO(testharness-impl): once ConvoStateAccessor is wired with a
-// real implementation (Phase 3), this calls into Conversation.Seal +
-// the onion submission path. Today it validates inputs but errors
-// with scaffoldedNotImplemented if the conversation state is nil.
+// The Convo round in which a queued message ships is driven by the
+// gjallarhorn.Client's Outgoing() callback — i.e., the next time
+// the Convo coordinator runs a round and asks this client for
+// onion content.
 func (tc *TestClient) SendMessage(body []byte) error {
 	if len(body) == 0 {
 		return wrap("SendMessage", errEmptyMessage)
@@ -171,12 +206,17 @@ func (tc *TestClient) SendMessage(body []byte) error {
 	if !utf8.Valid(body) {
 		return wrap("SendMessage", errInvalidUTF8)
 	}
-	// TODO: enforce convo.ConvoMessageSize cap once we have a stable
-	// reference (it's defined in gjallarhorn/convo).
-	if tc.ConvoState == nil {
-		return scaffoldedNotImplemented("SendMessage (no active conversation)")
+	if len(body) > convo.SizeMessageBody {
+		return wrap("SendMessage", errMessageTooLarge)
 	}
-	return scaffoldedNotImplemented("SendMessage")
+	if tc.ConvoState == nil {
+		return wrap("SendMessage", errNoConvoState)
+	}
+
+	tc.convoHandler.mu.Lock()
+	tc.convoHandler.outQueue = append(tc.convoHandler.outQueue, append([]byte(nil), body...))
+	tc.convoHandler.mu.Unlock()
+	return nil
 }
 
 // IncomingFriendRequestCh returns the channel of incoming friend
@@ -239,15 +279,21 @@ func (h *testClientHandler) UnexpectedSigningKey(in *neverlur.IncomingFriendRequ
 }
 
 func (h *testClientHandler) SendingCall(call *neverlur.OutgoingCall) {
-	// TODO(phase-3): wire conversation state from the call's session
-	// key into tc.ConvoState (a real implementation of
-	// ConvoStateAccessor backed by gjallarhorn.Conversation).
-	_ = call
+	seedKey := call.SessionKey()
+	seedRound := call.Round()
+	if seedKey == nil || seedRound == 0 {
+		// Call has not been fully sent yet; the dialing layer
+		// will retry. Nothing to bootstrap.
+		return
+	}
+	h.tc.ConvoState = newHarnessConvoState(seedKey, seedRound, h.tc.Username, call.Username)
 }
 
 func (h *testClientHandler) ReceivedCall(call *neverlur.IncomingCall) {
-	// TODO(phase-3): symmetric to SendingCall.
-	_ = call
+	if call.SessionKey == nil || call.Round == 0 {
+		return
+	}
+	h.tc.ConvoState = newHarnessConvoState(call.SessionKey, call.Round, h.tc.Username, call.Username)
 }
 
 func (h *testClientHandler) NewConfig(chain []*config.SignedConfig) {
