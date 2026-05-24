@@ -46,13 +46,20 @@ func (tc *TestClient) WaitForConvoRound(target uint32, timeout time.Duration) (u
 		return 0, fmt.Errorf("testharness: WaitForConvoRound: convo client not initialized")
 	}
 	deadline := time.Now().Add(timeout)
+	var last uint32
 	for {
-		got := tc.ConvoClient.LatestRound()
-		if got >= target {
-			return got, nil
+		got, err := tc.ConvoClient.LatestRound()
+		if err == nil {
+			last = got
+			if got >= target {
+				return got, nil
+			}
 		}
 		if time.Now().After(deadline) {
-			return got, fmt.Errorf("testharness: WaitForConvoRound: timeout waiting for round %d (latest=%d)", target, got)
+			if err != nil {
+				return last, fmt.Errorf("testharness: WaitForConvoRound: timeout (last=%d, err=%v)", last, err)
+			}
+			return last, fmt.Errorf("testharness: WaitForConvoRound: timeout waiting for round %d (latest=%d)", target, last)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
