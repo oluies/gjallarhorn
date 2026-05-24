@@ -53,14 +53,10 @@ jobs:
         # tests cover the convo / coordinator / mixnet packages and
         # the upcoming internal/testharness package once landed.
         #
-        # continue-on-error: TEMPORARILY true while a pre-existing
-        # inherited-code test failure gets triaged in a follow-up PR:
-        #   mixnet/mixnet_test.go "cardinality violation" (gRPC
-        #   RunRoundBidirectional protocol skew in inherited Vuvuzela
-        #   code; needs investigation, not a one-liner).
-        # Flip back to hard-fail once the mixnet test is either fixed
-        # or t.Skip'd with an explanatory comment.
-        continue-on-error: true
+        # Hard-failing as of #C3: the "cardinality violation" in
+        # mixnet/TestRunRound* was a missing SendAndClose in the
+        # client-streaming AddOnions server impl (mixnet/mixnet.go).
+        # See that PR's commit message for the full diagnosis.
         run: |
           pkgs=$(go list ./... | grep -v '/e2e$')
           go test -race -count=1 -timeout 5m $pkgs
@@ -78,3 +74,24 @@ jobs:
           else
             echo "no e2e/ directory yet; skipping"
           fi
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    # continue-on-error while the inherited code still has findings the
+    # path-except rule must catch but may miss as the codebase evolves.
+    # Flip to hard-fail once internal/testharness/ and e2e/ are the
+    # only PQ-touched paths and the exclusion is known-stable.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest

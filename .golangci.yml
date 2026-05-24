@@ -1,0 +1,46 @@
+# golangci-lint configuration.
+#
+# Scoping rationale:
+#
+#   The bulk of Gjallarhorn is inherited Vuvuzela code that predates
+#   routine lint gating. Fixing all of it is a separate cleanup
+#   project, not appropriate scope for the PQ-migration / conversation-
+#   wiring work.
+#
+#   The PQ-migration foundation packages live in Neverlur (pqkem/,
+#   pqsig/, hybrid/). On the Gjallarhorn side the analogue is the
+#   conversation-layer harness in internal/testharness/ — new code
+#   that consumes hybrid identities, signed configs, and the PQ-
+#   keywheel session key. That is where discipline is load-bearing.
+#
+#   This config restricts the standard linter set to internal/testharness/
+#   and to the e2e/ directory (once it lands). Inherited Vuvuzela code
+#   (mixnet/, convo/, coordinator/, client.go, etc.) is exempted.
+#
+#   When inherited code is cleaned up in a follow-up project, the
+#   path-except below can be widened or removed.
+
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  settings:
+    govet:
+      disable:
+        - inline
+  exclusions:
+    rules:
+      # Inherited Vuvuzela code: skip all standard linters. Project
+      # scope is conversation-wiring + PQ-migration; inherited-code
+      # quality cleanup is a separate project.
+      - path-except: '^(internal/testharness|e2e)/'
+        linters:
+          - errcheck
+          - staticcheck
+          - ineffassign
+          - govet
+          - unused
+          - typecheck
