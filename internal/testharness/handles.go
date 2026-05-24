@@ -4,45 +4,47 @@
 
 package testharness
 
-// This file defines per-component handle types used by Harness. Each
-// handle wraps the real server type with the listen address the
-// harness assigned and a Close() callback the harness invokes at
-// teardown.
-//
-// Handles are exported so test consumers can inspect the harness's
-// component endpoints (e.g. to wire a custom *neverlur.Client whose
-// PKG endpoint is the harness's PKG handle's address).
-//
-// Scaffold status: types are real; the Server field of each is nil
-// until the corresponding per-component init code lands. See TODOs in
-// harness.go.
+import (
+	gmixnet "github.com/oluies/gjallarhorn/mixnet"
+	"github.com/oluies/neverlur/mock"
+)
 
-// NeverlurMixerHandle wraps one Neverlur mixer instance.
-type NeverlurMixerHandle struct {
-	Address string
-	Server  interface{} // TODO(testharness-impl): *mixnet.Server
+// Per-component handle types wrap the real server objects so test
+// consumers can inspect endpoints.
+
+// NeverlurMixchainHandle wraps the Neverlur-side mixchain (3 mixers
+// configured with AddFriend + Dialing services from
+// neverlur/mock.LaunchMixchain).
+type NeverlurMixchainHandle struct {
+	Mixchain *mock.Mixchain
 }
 
-// NeverlurPKGHandle wraps the single Neverlur PKG instance.
+// NeverlurPKGHandle wraps one Neverlur-side PKG instance.
 type NeverlurPKGHandle struct {
-	Address string
-	Server  interface{} // TODO(testharness-impl): *pkg.Server
+	PKG *mock.PKG
 }
 
-// NeverlurCDNHandle wraps the single Neverlur CDN instance.
+// NeverlurCDNHandle wraps the Neverlur-side CDN instance.
 type NeverlurCDNHandle struct {
-	Address string
-	Server  interface{} // TODO(testharness-impl): *cdn.Server
+	CDN *mock.CDN
 }
 
-// GjallarhornMixerHandle wraps one Gjallarhorn mixer instance.
-type GjallarhornMixerHandle struct {
-	Address string
-	Server  interface{} // TODO(testharness-impl): *gmixnet.Server
+// GjallarhornConvoMixchainHandle wraps the Gjallarhorn-side mixchain
+// (mixers configured with the Convo service). Built by
+// launchConvoMixchain in gjallarhorn.go.
+type GjallarhornConvoMixchainHandle struct {
+	Servers    []gmixnet.PublicServerConfig
+	mixServers []*gmixnet.Server
+	closers    []func() error
 }
 
-// GjallarhornCDNHandle wraps the single Gjallarhorn CDN instance.
-type GjallarhornCDNHandle struct {
-	Address string
-	Server  interface{} // TODO(testharness-impl): *gcdn.Server
+// Close stops every Convo-mixchain mixer.
+func (h *GjallarhornConvoMixchainHandle) Close() error {
+	var firstErr error
+	for _, fn := range h.closers {
+		if err := fn(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
