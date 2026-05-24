@@ -51,20 +51,10 @@ jobs:
       - name: Test (unit)
         # Everything EXCEPT the integration-test directory. The unit
         # tests cover the convo / coordinator / mixnet packages and
-        # the upcoming internal/testharness package once landed.
+        # the internal/testharness package.
         #
-        # continue-on-error remains TRUE because internal/testharness
-        # has a pre-existing -race-detected data race in the convo
-        # coordinator (goroutine racing on srv.rounds map between
-        # loop() and updateConfigLoop()). The mixnet "cardinality
-        # violation" was a separate bug; that one is FIXED in this PR
-        # (mixnet/mixnet.go AddOnions now calls SendAndClose). The
-        # race is the next thing to fix before we can flip this to
-        # hard-fail.
-        #
-        # Tracked: https://github.com/oluies/gjallarhorn (TODO open
-        # issue once Block C lands).
-        continue-on-error: true
+        # Hard-fail enabled (#F1) once the coordinator loop-variable
+        # race on lastDeadline was fixed (coordinator/server.go).
         run: |
           pkgs=$(go list ./... | grep -v '/e2e$')
           go test -race -count=1 -timeout 5m $pkgs

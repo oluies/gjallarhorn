@@ -297,8 +297,17 @@ func (srv *Server) loop() {
 			lastDeadline = time.Now()
 		}
 		lastDeadline = lastDeadline.Add(srv.RoundDelay)
+		// Capture the deadline value per-iteration BEFORE spawning
+		// the goroutine. Without this, the next loop iteration mutates
+		// lastDeadline while the inner goroutine is reading it
+		// (race detected by go test -race in CI). The race also
+		// changed the deadline a round actually used: the deadline
+		// the round saw was whatever the loop had advanced to by
+		// the time runRound dereferenced it, not the deadline
+		// computed for that round.
+		deadline := lastDeadline
 		go func() {
-			srv.runRound(context.Background(), round, lastDeadline)
+			srv.runRound(context.Background(), round, deadline)
 			flights <- struct{}{}
 		}()
 	}
