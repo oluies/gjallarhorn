@@ -8,7 +8,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"path/filepath"
-	"testing"
 	"unicode/utf8"
 
 	"github.com/oluies/gjallarhorn"
@@ -96,7 +95,7 @@ type ConvoStateAccessor interface {
 //
 // Note: registration sets registration tokens to the empty string;
 // the harness's PKG uses a noop RegTokenHandler that always accepts.
-func (h *Harness) ClientFor(tb testing.TB, username string) *TestClient {
+func (h *Harness) ClientFor(tb TB, username string) *TestClient {
 	tb.Helper()
 
 	id, err := hybrid.GenerateHybridIdentity()
