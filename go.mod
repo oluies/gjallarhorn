@@ -34,19 +34,19 @@ require (
 	github.com/gen2brain/beeep v0.11.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/jroimartin/gocui v0.5.0
-	github.com/oluies/neverlur v0.0.0-20260522185628-c389e043e18d
+	github.com/oluies/neverlur v0.0.0-20260524082542-4658aac559bb
 	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
 	google.golang.org/grpc v1.81.1
 	vuvuzela.io/concurrency v0.0.0-00010101000000-000000000000
 	vuvuzela.io/crypto v0.0.0-00010101000000-000000000000
-	vuvuzela.io/internal v0.0.0-00010101000000-000000000000
 )
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/davidlazar/mapstructure v0.0.0-20170906201703-c9d7ddc4ff97 // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
