@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"testing"
 
 	"github.com/davidlazar/go-crypto/encoding/base32"
 
@@ -19,6 +18,18 @@ import (
 	"github.com/oluies/neverlur/hybrid"
 	"github.com/oluies/neverlur/pqsig"
 )
+
+// TB is the narrow subset of testing.TB the harness actually uses.
+// *testing.T satisfies it implicitly, and so does any standalone
+// shim (the gjallarhorn-conversation-demo CLI provides one) — which
+// matters because testing.TB has unexported methods and cannot be
+// implemented from outside the testing package.
+type TB interface {
+	Helper()
+	TempDir() string
+	Cleanup(func())
+	Fatalf(format string, args ...any)
+}
 
 // Harness is an in-memory stand-up of the full Neverlur + Gjallarhorn
 // service set. See doc.go for the design narrative.
@@ -56,7 +67,7 @@ type Harness struct {
 	neverlurCfgServer *config.Server
 
 	closeOnce sync.Once
-	tb        testing.TB
+	tb        TB
 	opts      options
 	cleanups  []func()
 }
@@ -106,7 +117,7 @@ func OptionMixerCount(neverlur, gjallarhorn int) Option {
 // if a non-test caller is consuming.
 //
 // New panics via tb.Fatal if any component fails to start.
-func New(tb testing.TB, opts ...Option) *Harness {
+func New(tb TB, opts ...Option) *Harness {
 	tb.Helper()
 
 	resolved := defaultOptions()
