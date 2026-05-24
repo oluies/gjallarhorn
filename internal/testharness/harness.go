@@ -184,12 +184,6 @@ func (h *Harness) signConfigInPlace(conf *config.SignedConfig) error {
 	return nil
 }
 
-// scaffoldedNotImplemented is retained for stubbed methods (currently
-// only rounds.go::AdvanceRound) until their real implementation lands.
-func scaffoldedNotImplemented(method string) error {
-	return fmt.Errorf("testharness.%s: not yet implemented (deterministic round driving deferred)", method)
-}
-
 // wrap is the harness-internal error wrapping helper.
 func wrap(stage string, err error) error {
 	return fmt.Errorf("testharness: %s: %w", stage, err)
