@@ -6,7 +6,6 @@ package convo
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -16,13 +15,19 @@ import (
 
 	"github.com/oluies/gjallarhorn/mixnet"
 	"github.com/oluies/neverlur/config"
+	"github.com/oluies/neverlur/hybrid"
+	"github.com/oluies/neverlur/pqsig"
 )
 
 func TestMarshalConvoConfig(t *testing.T) {
-	guardianPub, guardianPriv, _ := ed25519.GenerateKey(rand.Reader)
+	guardian, err := hybrid.GenerateHybridIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	conf := &config.SignedConfig{
-		Version: config.SignedConfigVersion,
+		Version:          config.SignedConfigVersion,
+		MinClientVersion: config.SignedConfigVersion,
 
 		// UTC strips the *time.Location pointer (defaults to time.Local,
 		// which reflect.DeepEqual treats as different from the fixed-zone
@@ -35,7 +40,8 @@ func TestMarshalConvoConfig(t *testing.T) {
 		Guardians: []config.Guardian{
 			{
 				Username: "david",
-				Key:      guardianPub,
+				Key:      guardian.EdPub,
+				PQKey:    pqsig.PackPublicKey(guardian.PQPub),
 			},
 		},
 
@@ -44,20 +50,28 @@ func TestMarshalConvoConfig(t *testing.T) {
 			Version: ConvoConfigVersion,
 
 			Coordinator: CoordinatorConfig{
-				Key:     guardianPub,
+				Key:     guardian.EdPub,
 				Address: "localhost:8080",
 			},
 			MixServers: []mixnet.PublicServerConfig{
 				{
-					Key:     guardianPub,
+					Key:     guardian.EdPub,
 					Address: "localhost:1234",
 				},
 			},
 		},
 	}
-	sig := ed25519.Sign(guardianPriv, conf.SigningMessage())
+	msg := conf.SigningMessage()
+	sigEd := ed25519.Sign(guardian.EdPriv, msg)
+	sigPQ, err := pqsig.Sign(guardian.PQPriv, msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hs config.HybridSignature
+	copy(hs.Ed[:], sigEd)
+	copy(hs.PQ[:], sigPQ)
 	conf.Signatures = map[string][]byte{
-		base32.EncodeToString(guardianPub): sig,
+		base32.EncodeToString(guardian.EdPub): hs.Bytes(),
 	}
 	if err := conf.Verify(); err != nil {
 		t.Fatal(err)
