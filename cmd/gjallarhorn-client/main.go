@@ -63,12 +63,12 @@ func main() {
 	})
 }
 
-func LoadAlpenhornState(confHome string, username string) (client *alpenhorn.Client, new bool) {
+func LoadAlpenhornState(confHome string, username string) (client *neverlur.Client, new bool) {
 	alpStatePath := filepath.Join(confHome, fmt.Sprintf("%s-alpenhorn-client-state", username))
 	keywheelPath := filepath.Join(confHome, fmt.Sprintf("%s-keywheel", username))
 
 	var err error
-	client, err = alpenhorn.LoadClient(alpStatePath, keywheelPath)
+	client, err = neverlur.LoadClient(alpStatePath, keywheelPath)
 	if os.IsNotExist(err) {
 		client, err = generateAlpenhornClient(username, alpStatePath, keywheelPath)
 		if err != nil {
@@ -108,7 +108,7 @@ func LoadVuvuzelaState(confHome string, username string) (client *gjallarhorn.Cl
 	return
 }
 
-func generateAlpenhornClient(username string, alpStatePath string, keywheelPath string) (*alpenhorn.Client, error) {
+func generateAlpenhornClient(username string, alpStatePath string, keywheelPath string) (*neverlur.Client, error) {
 	addFriendConfig, err := config.StdClient.CurrentConfig("AddFriend")
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest addfriend config")
@@ -123,7 +123,7 @@ func generateAlpenhornClient(username string, alpStatePath string, keywheelPath 
 		panic(err)
 	}
 
-	client := &alpenhorn.Client{
+	client := &neverlur.Client{
 		Username:           username,
 		LongTermPrivateKey: privateKey,
 		LongTermPublicKey:  publicKey,

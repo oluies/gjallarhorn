@@ -30,7 +30,7 @@ type GuiClient struct {
 
 	gui             *gocui.Gui
 	convoClient     *gjallarhorn.Client
-	alpenhornClient *alpenhorn.Client
+	alpenhornClient *neverlur.Client
 
 	mu            sync.Mutex
 	selectedConvo *Conversation

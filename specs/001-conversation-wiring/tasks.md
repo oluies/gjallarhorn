@@ -31,9 +31,9 @@ Single Go module at the repository root. Phase A additions: `internal/testharnes
 
 **Purpose**: Make the repo buildable in the cross-repo workspace, finish the rebrand, and stand up CI so Phase A's tests have somewhere to run.
 
-- [ ] T001 Remove the dead `replace vuvuzela.io/alpenhorn => github.com/vuvuzela/alpenhorn ...` line from `go.mod`. Keep the other four `vuvuzela.io/*` replaces (they're still load-bearing for inherited Vuvuzela code). Run `go mod tidy` to confirm no transitive importer surfaces.
-- [ ] T002 Rebrand-finish in `cmd/gjallarhorn-client/alpenhorn.go`: rename every `alpenhorn.X` identifier to `neverlur.X`. 12 sites per `research.md` R1. After: `git grep '\balpenhorn\.' cmd/gjallarhorn-client/` returns empty.
-- [ ] T003 Create `.github/workflows/ci.yml` per `contracts/ci-workflow.md` — `gofmt`, `go build`, `go vet` (continue-on-error), `go test (unit)`, `go test (e2e)` steps on `ubuntu-latest` with Go 1.25. Fires on every push and every pull request.
+- [X] T001 Remove the dead `replace vuvuzela.io/alpenhorn => github.com/vuvuzela/alpenhorn ...` line from `go.mod`. Keep the other four `vuvuzela.io/*` replaces (they're still load-bearing for inherited Vuvuzela code). Run `go mod tidy` to confirm no transitive importer surfaces.
+- [X] T002 Rebrand-finish in `cmd/gjallarhorn-client/alpenhorn.go`: rename every `alpenhorn.X` identifier to `neverlur.X`. 12 sites per `research.md` R1. After: `git grep '\balpenhorn\.' cmd/gjallarhorn-client/` returns empty.
+- [X] T003 Create `.github/workflows/ci.yml` per `contracts/ci-workflow.md` — `gofmt`, `go build`, `go vet` (continue-on-error), `go test (unit)`, `go test (e2e)` steps on `ubuntu-latest` with Go 1.25. Fires on every push and every pull request.
 
 ---
 

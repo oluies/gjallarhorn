@@ -137,7 +137,7 @@ var commands = map[string]Command{
 				tw.Flush()
 			}
 
-			prettyPrintOutReqs := func(reqs []*alpenhorn.OutgoingFriendRequest) {
+			prettyPrintOutReqs := func(reqs []*neverlur.OutgoingFriendRequest) {
 				tw := tabwriter.NewWriter(buf, 0, 0, 1, ' ', 0)
 				for _, req := range reqs {
 					confirm := ""
