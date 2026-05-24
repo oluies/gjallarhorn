@@ -463,7 +463,17 @@ func (srv *Server) AddOnions(stream pb.Mixnet_AddOnionsServer) error {
 		st.mu.Unlock()
 	}
 
-	return nil
+	// AddOnions is a client-streaming RPC declared in the proto as
+	// `rpc AddOnions(stream AddOnionsRequest) returns (Nothing)`.
+	// Newer gRPC clients enforce the cardinality contract strictly
+	// and report "cardinality violation: received no response message
+	// from non-server-streaming RPC" if the server does not call
+	// SendAndClose exactly once. Pre-2023 gRPC was lenient and let
+	// a nil-return slide; the inherited Vuvuzela code relies on that
+	// older behavior, which is why mixnet/TestRunRound* fails on the
+	// current toolchain. Sending an empty Nothing response makes the
+	// RPC well-formed.
+	return stream.SendAndClose(&pb.Nothing{})
 }
 
 func (srv *Server) filterIncoming(st *roundState) {

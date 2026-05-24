@@ -7,6 +7,7 @@ package testharness
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"net"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -33,9 +34,13 @@ func (h *Harness) startNeverlurSide(tmpDir string) error {
 	if err != nil {
 		return wrap("config.CreateServer", err)
 	}
-	cfgListener, err := edtls.Listen("tcp", "localhost:0", h.HarnessGuardian.EdPriv)
+	// Plain net.Listen (no TLS) so config.Client (which uses
+	// http://) can talk to it. Production deploys this behind a
+	// reverse proxy / TLS terminator; in-process tests don't need
+	// the auth layer.
+	cfgListener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		return wrap("config-server edtls.Listen", err)
+		return wrap("config-server net.Listen", err)
 	}
 	cfgHTTP := &http.Server{Handler: cfgServer}
 	go func() {
