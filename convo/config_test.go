@@ -24,9 +24,13 @@ func TestMarshalConvoConfig(t *testing.T) {
 	conf := &config.SignedConfig{
 		Version: config.SignedConfigVersion,
 
-		// need to round otherwise the time includes a monotonic clock value
-		Created: time.Now().Round(0),
-		Expires: time.Now().Round(0),
+		// UTC strips the *time.Location pointer (defaults to time.Local,
+		// which reflect.DeepEqual treats as different from the fixed-zone
+		// Location that JSON round-tripping produces). Round(0) drops the
+		// monotonic clock. Mirrors the Neverlur-side fix in
+		// neverlur/config/config_test.go.
+		Created: time.Now().UTC().Round(0),
+		Expires: time.Now().UTC().Round(0),
 
 		Guardians: []config.Guardian{
 			{
