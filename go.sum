@@ -83,8 +83,8 @@ github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
 github.com/nsf/termbox-go v1.1.1 h1:nksUPLCb73Q++DwbYUBEglYBRPZyoXJdrj5L+TkjyZY=
 github.com/nsf/termbox-go v1.1.1/go.mod h1:T0cTdVuOwf7pHQNtfhnEbzHbcNyCEcVU4YPpouCbVxo=
-github.com/oluies/neverlur v0.0.0-20260525063531-486effecc4ac h1:RfwV2CdN5HfNgRsXtqPGAHFeAm9IilmVEnSs3DCLihQ=
-github.com/oluies/neverlur v0.0.0-20260525063531-486effecc4ac/go.mod h1:lftzv+bOHmY6P6TsLxv99KhuHVaV5ns0HIcyXrTRa0U=
+github.com/oluies/neverlur v0.0.0-20260525090741-2107ab224c69 h1:FLJVa9H557B8L2qjBdf55hBvP0sCX52VnFUOtiyqLH4=
+github.com/oluies/neverlur v0.0.0-20260525090741-2107ab224c69/go.mod h1:dZGdVJKkTWbZJPYqYsCrBAXqBIDu4GFwyei/prgEL1k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -118,16 +118,10 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af h1:6yITBqGTE2lEeTPG04SN9W+iWHCRyHqlVYILiSXziwk=
 github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af/go.mod h1:4F09kP5F+am0jAwlQLddpoMDM+iewkxxt6nxUQ5nq5o=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
-github.com/vuvuzela/alpenhorn v0.0.0-20190912152808-6b33518f681e h1:W0YA4IsUIkPzw8W5/4z9zjld048ZlEg75aThWcRDPPA=
-github.com/vuvuzela/alpenhorn v0.0.0-20190912152808-6b33518f681e/go.mod h1:P1rEv+x3t4pUZUcpZK2lQVsd7HvxAzG9e2OSdMkW69A=
 github.com/vuvuzela/concurrency v0.0.0-20190327123758-e608f351e310 h1:I3K8oa+OMZSK2eF3JqPAIEpYl5KR3se0VJ/IhsomZIM=
 github.com/vuvuzela/concurrency v0.0.0-20190327123758-e608f351e310/go.mod h1:OKgztL8+Y2tLXsly2xsM0vUqKt9BTtlCzp22RFSOs2U=
 github.com/vuvuzela/crypto v0.0.0-20220523120157-1709ed3a3b66 h1:uurkpPq1gRdhh0SbaLWFIty1aKlruqt80YALQlHHVaM=
 github.com/vuvuzela/crypto v0.0.0-20220523120157-1709ed3a3b66/go.mod h1:WlQAQdRbKCu/yQhCoopJtLHDAgjY1dHEiHC7lSN3rlY=
-github.com/vuvuzela/internal v0.0.0-20190910144301-7321cf92c8ba h1:eh6s4xfh8r6qSgCgC5C4THdXeGgtrApaoD9lFHC4IVI=
-github.com/vuvuzela/internal v0.0.0-20190910144301-7321cf92c8ba/go.mod h1:j1F4Nz79BZpt4Qnx7kX0X4HKplAMt8MU+ZiEhITCOew=
-github.com/vuvuzela/vuvuzela v0.0.0-20190912153956-55ba49f81ad0 h1:3PFkWU2tc0OIAv8gclOeUanHUHD0h2VsdnM1hce4QTU=
-github.com/vuvuzela/vuvuzela v0.0.0-20190912153956-55ba49f81ad0/go.mod h1:cSuhG7e9Kmd5+rBz6QUhi7dDY9euTsQpSybMANKvNzI=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
