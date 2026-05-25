@@ -53,22 +53,16 @@ jobs:
         # tests cover the convo / coordinator / mixnet packages and
         # the internal/testharness package.
         #
-        # continue-on-error remains TRUE because internal/testharness
-        # tests still fail under -race with no clear t.Fatal — the
-        # FAIL marker appears with no individual test marker, suggesting
-        # a panic in a goroutine spawned by the convo coordinator
-        # whose stack isn't surfacing through go test's output buffer.
-        # The coordinator loop-variable race on lastDeadline IS fixed
-        # in this commit (coordinator/server.go) but the harness tests
-        # still don't pass, so flipping to hard-fail is premature.
-        #
-        # Investigation TODO: this likely needs running the testharness
-        # tests under `go test -v -race -trimpath` with GOTRACEBACK=all
-        # to surface the actual goroutine panic.
-        continue-on-error: true
+        # Hard-fail enabled. The earlier silent-FAIL was a chain of
+        # two bugs:
+        #   1. neverlur/mock/mix.go log.Fatal("vrpc.Serve:", nil) on
+        #      clean gRPC shutdown (fixed in oluies/neverlur#8)
+        #   2. coordinator/server.go loop() never observed shutdown,
+        #      Persist panicked when tmpDir was already gone (fixed
+        #      in this commit, plus the go.mod bump to pick up #8)
         run: |
           pkgs=$(go list ./... | grep -v '/e2e$')
-          go test -v -race -count=1 -timeout 5m $pkgs
+          go test -race -count=1 -timeout 5m $pkgs
 
       - name: Test (e2e)
         # The Phase A integration tests + the hybrid-carry-through
