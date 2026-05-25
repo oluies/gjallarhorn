@@ -280,16 +280,38 @@ func (srv *Server) loop() {
 	atomic.AddUint32(&srv.round, 100)
 
 	lastDeadline := time.Now()
-	for _ = range flights {
+	for {
+		// Exit cleanly on shutdown so the loop doesn't keep firing
+		// rounds (and triggering Persist panics) after Close() while
+		// the test harness is tearing down the persist directory.
+		select {
+		case <-srv.shutdown:
+			log.Info("Shutting down")
+			return
+		case <-flights:
+		}
+
 		round := atomic.AddUint32(&srv.round, 1)
 
-		// Persist every 20 rounds.
+		// Persist every 20 rounds. If Persist fails AFTER Close()
+		// has been called (typically because the test harness has
+		// deleted the persist directory), swallow the error — the
+		// loop is on its way out and the panic would terminate the
+		// test binary mid-teardown, producing a package-level FAIL
+		// with no individual test marker.
 		if round%uint32(20) == 0 {
 			go func() {
 				err := srv.Persist()
-				if err != nil {
-					panic(err)
+				if err == nil {
+					return
 				}
+				srv.mu.Lock()
+				closed := srv.closed
+				srv.mu.Unlock()
+				if closed {
+					return
+				}
+				panic(err)
 			}()
 		}
 
@@ -308,11 +330,14 @@ func (srv *Server) loop() {
 		deadline := lastDeadline
 		go func() {
 			srv.runRound(context.Background(), round, deadline)
-			flights <- struct{}{}
+			// Non-blocking flights refill: if the loop has already
+			// exited (shutdown), don't block this goroutine forever.
+			select {
+			case flights <- struct{}{}:
+			default:
+			}
 		}()
 	}
-
-	log.Info("Shutting down")
 }
 
 func (srv *Server) runRound(ctx context.Context, round uint32, deadline time.Time) {
