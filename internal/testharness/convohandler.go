@@ -42,11 +42,22 @@ func (h *testClientConvoHandler) Outgoing(round uint32) []*convo.DeadDropMessage
 	}
 	h.mu.Unlock()
 
-	if state == nil || body == nil {
+	// Without an active conversation, we have no shared dead-drop
+	// to send to — emit fully-random cover traffic.
+	if state == nil {
 		return []*convo.DeadDropMessage{coverDeadDrop()}
 	}
 
-	// Pad to SizeMessageBody.
+	// With an active conversation, we MUST send to the shared dead-
+	// drop every round (real message or cover), because that's where
+	// the mixchain routes the reply from. If we sent cover to a
+	// random drop we'd never appear in the peer's reply set and the
+	// peer couldn't decrypt our messages. Per Vuvuzela conversation
+	// protocol: both peers send to the same per-round dead-drop;
+	// the mixchain returns whatever's at that drop as the reply.
+	if body == nil {
+		body = make([]byte, convo.SizeMessageBody) // zero-cover
+	}
 	padded := make([]byte, convo.SizeMessageBody)
 	copy(padded, body)
 

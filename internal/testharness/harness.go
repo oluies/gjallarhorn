@@ -85,22 +85,14 @@ type options struct {
 
 // defaultOptions returns the options used when no Option is supplied.
 //
-// neverlurMixers defaults to 1 (not 3) as a workaround for an
-// inherited Vuvuzela mixnet bug: vuvuzela.io/vuvuzela/mixnet (which
-// neverlur/mock.LaunchMixchain still uses) is missing the
-// SendAndClose call in its AddOnions handler, so inter-mixer
-// forwarding fails with "cardinality violation". The Gjallarhorn
-// fork's mixnet has the fix (Block C, mixnet/mixnet.go), but
-// the Neverlur side stayed on upstream. With a single-mixer chain,
-// no inter-mixer forwarding happens, sidestepping the bug.
-// Anonymity-set size is irrelevant for harness correctness tests.
-// Tests that need a multi-mixer Neverlur chain should ALSO bring
-// the fix upstream first.
-//
-// gjallarhornMixers keeps the default of 3 — its mixnet is fixed.
+// Both sides default to 3 mixers. The previous 1-mixer Neverlur
+// workaround (for the inherited vuvuzela.io/vuvuzela/mixnet
+// AddOnions cardinality bug) is no longer needed: neverlur#9
+// vendored gjallarhorn/mixnet into neverlur/mixnet (with the
+// SendAndClose fix), so the Neverlur mock now uses fixed code.
 func defaultOptions() options {
 	return options{
-		neverlurMixers:    1,
+		neverlurMixers:    3,
 		gjallarhornMixers: 3,
 	}
 }

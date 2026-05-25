@@ -16,31 +16,6 @@ import (
 // round-trip between two TestClients (Alice and Bob) standing up a
 // fresh testharness.Harness.
 //
-// STILL SKIPPED — one upstream blocker remains after the Phase A
-// fix-up rounds. The reference implementation below COMPILES (the
-// test body is no longer commented out) and runs to the point where
-// the Neverlur AddFriend coordinator tries to drive a real round
-// through its mock mixchain. That fails with:
-//
-//	adding onions: rpc error: code = Internal desc = cardinality
-//	violation: received no response message from non-server-
-//	streaming RPC  call=mixnet.RunRound round=2
-//
-// because neverlur/mock/mix.go uses vuvuzela.io/vuvuzela/mixnet
-// (upstream Vuvuzela), whose Server.AddOnions handler is missing
-// the SendAndClose call that modern gRPC requires. We fixed the
-// same bug in github.com/oluies/gjallarhorn/mixnet (PR #8) but the
-// upstream-Vuvuzela mixnet that the Neverlur mock imports is
-// outside our module replace scope.
-//
-// The 1-mixer workaround (testharness defaultOptions
-// neverlurMixers=1) only dodges the inter-mixer AddOnions call;
-// the coordinator → mixer-0 AddOnions call still hits this bug.
-//
-// G6 (future): fork vuvuzela.io/vuvuzela/mixnet into an
-// oluies-owned repo, apply the one-line SendAndClose fix, update
-// Neverlur's go.mod replace, then unskip this test.
-//
 // Constitutional Principle II: this test exercises the full hybrid
 // keywheel pipeline end-to-end, giving confidence that the
 // production add-friend → dial → conversation chain still derives
@@ -48,9 +23,30 @@ import (
 // gjallarhorn-conversation-demo binary uses for human-facing
 // smoke checks.
 //
-// Runtime budget (once unskipped): ~120-180s of coordinator rounds.
+// Runtime budget: ~120-180s of coordinator rounds.
+//
+// STILL SKIPPED — the mixnet/log.Fatal/race chain (G2/G5/G6) is
+// resolved and add-friend + dial + ConvoState bootstrap all complete
+// reliably in CI. But the final message round-trip times out at the
+// 60s wait on bob.RecvCh: Bob's trial-decrypt of the per-round
+// reply set never matches Alice's sealed message.
+//
+// The crypto is byte-identical to cmd/gjallarhorn-client/
+// conversation.go (rollKey + secretbox + HMAC-SHA256 dead-drop)
+// so the most likely remaining issue is keywheel synchronization
+// across the harness: alice's wheel.SessionKey(bob, dialRound)
+// not equaling bob's wheel.SessionKey(alice, dialRound). That would
+// produce divergent rollKey outputs at every convo round and bob's
+// Open would never match any ciphertext.
+//
+// G7 (future): instrument harnessConvoState.Seal/Open/DeadDrop with
+// t.Logf to dump alice's and bob's per-round keys + drop bytes, then
+// fix whatever wiring discrepancy that exposes. Likely candidate:
+// the add-friend handshake completes in the harness but the keywheel
+// state on the two sides doesn't actually converge to the same
+// shared secret per (peer, round) tuple.
 func TestE2EFirstMessage(t *testing.T) {
-	t.Skip("blocked on vuvuzela.io/vuvuzela/mixnet AddOnions SendAndClose fix (G6); see comment")
+	t.Skip("blocked on keywheel sync investigation (G7); see comment")
 
 	h := testharness.New(t)
 	alice := h.ClientFor(t, "alice@harness.test")
