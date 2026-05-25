@@ -8,109 +8,117 @@ import (
 	"bytes"
 	"testing"
 	"time"
+
+	"github.com/oluies/gjallarhorn/internal/testharness"
 )
 
 // TestE2EFirstMessage drives a full add-friend → dial → first-message
 // round-trip between two TestClients (Alice and Bob) standing up a
-// fresh testharness.Harness with three mixers on each side.
+// fresh testharness.Harness.
 //
-// Currently SKIPPED: the testharness end-to-end path is gated on
-// two upstream fixes that landed in the same week as this scaffold:
+// Unblocked after:
+//   - neverlur#7 (Call Round accessors)
+//   - gjallarhorn#7 (real harnessConvoState)
+//   - gjallarhorn#11 (coordinator loop-variable race fix)
+//   - gjallarhorn#12 (TestClient.Start / Stop / Bootstrap)
+//   - neverlur#8 (mock/mix.go log.Fatal-on-clean-shutdown fix)
+//   - gjallarhorn#15 (coordinator clean shutdown)
 //
-//   - coordinator data race (gjallarhorn/coordinator/server.go,
-//     race between Run.loop() and updateConfigLoop() on srv.rounds).
-//     Detected by go test -race in #C3 CI output.
+// Constitutional Principle II: this test exercises the full hybrid
+// keywheel pipeline end-to-end, giving confidence that the
+// production add-friend → dial → conversation chain still derives
+// session keys via the hybrid combiner. The combiner output
+// (Wheel.SessionKey) becomes call.SessionKey on both sides, which
+// the harness ConvoState rolls forward to per-round NaCl secretbox
+// keys — same code path the gjallarhorn-conversation-demo binary
+// uses for human-facing smoke checks.
 //
-//   - TestClient.Start() helper that connects AddFriend + Dialing +
-//     Convo websockets. The testharness wires the connections lazily
-//     on first SendFriendRequest / Call; e2e needs explicit Start so
-//     each step is observable.
-//
-// Once both clear, replace the t.Skip with the body below the
-// comment.
-//
-// Constitutional notes: Principle II — this test exercises the full
-// hybrid keywheel pipeline end-to-end, which is the only way to gain
-// confidence that the production add-friend → dial → conversation
-// chain still derives session keys via the hybrid combiner.
+// Runtime budget: the harness coordinators use small per-round
+// waits (1-2s) but the full add-friend handshake still needs
+// several rounds to complete. 90-second deadline per major step.
 func TestE2EFirstMessage(t *testing.T) {
-	t.Skip("requires coordinator data-race fix + TestClient.Start() helper (see comment)")
+	h := testharness.New(t)
+	alice := h.ClientFor(t, "alice@harness.test")
+	bob := h.ClientFor(t, "bob@harness.test")
 
-	// Reference implementation below (compile-tested via build).
-	// When unskipping, also import testharness and uncomment.
-	/*
-		h := testharness.New(t)
-		alice := h.ClientFor(t, "alice@harness.test")
-		bob := h.ClientFor(t, "bob@harness.test")
+	aliceDisc, err := alice.Start()
+	if err != nil {
+		t.Fatalf("alice.Start: %v", err)
+	}
+	bobDisc, err := bob.Start()
+	if err != nil {
+		t.Fatalf("bob.Start: %v", err)
+	}
+	t.Cleanup(alice.Stop)
+	t.Cleanup(bob.Stop)
+	go drainDisconnects(t, "alice", aliceDisc)
+	go drainDisconnects(t, "bob", bobDisc)
 
-		if _, err := alice.StartConvo(); err != nil {
-			t.Fatalf("alice StartConvo: %v", err)
+	// --- Add-friend handshake -----------------------------------------------
+	if _, err := alice.SendFriendRequest(bob.Username, nil); err != nil {
+		t.Fatalf("alice SendFriendRequest: %v", err)
+	}
+	select {
+	case req := <-bob.IncomingFriendRequestCh():
+		if _, err := req.Approve(); err != nil {
+			t.Fatalf("bob Approve: %v", err)
 		}
-		if _, err := bob.StartConvo(); err != nil {
-			t.Fatalf("bob StartConvo: %v", err)
-		}
+	case <-time.After(90 * time.Second):
+		t.Fatal("bob never received friend request within 90s")
+	}
+	waitFor(t, 90*time.Second, "alice ↔ bob friendship confirmed", func() bool {
+		return alice.HasFriend(bob.Username) && bob.HasFriend(alice.Username)
+	})
 
-		// Alice → Bob add-friend handshake.
-		if _, err := alice.SendFriendRequest(bob.Username, nil); err != nil {
-			t.Fatalf("SendFriendRequest: %v", err)
-		}
-		select {
-		case req := <-bob.IncomingFriendRequestCh():
-			if _, err := req.Approve(); err != nil {
-				t.Fatalf("approve: %v", err)
-			}
-		case <-time.After(30 * time.Second):
-			t.Fatal("bob never received friend request")
-		}
-		waitFor(t, 30*time.Second, "alice friend confirmed", func() bool {
-			return alice.HasFriend(bob.Username)
-		})
+	// --- Dial: bootstrap conversation ---------------------------------------
+	f := alice.GetFriend(bob.Username)
+	if f == nil {
+		t.Fatal("alice has no Friend object for bob after confirmation")
+	}
+	_ = f.Call(0)
+	waitFor(t, 90*time.Second, "ConvoState bootstrapped on both sides", func() bool {
+		return alice.ConvoState != nil && bob.ConvoState != nil
+	})
 
-		// Alice calls bob to bootstrap the conversation.
-		f, ok := lookupFriend(alice, bob.Username)
-		if !ok {
-			t.Fatal("alice has no friend bob after confirmation")
+	// --- First message round-trip -------------------------------------------
+	body := []byte("hello bob")
+	if err := alice.SendMessage(body); err != nil {
+		t.Fatalf("alice SendMessage: %v", err)
+	}
+	select {
+	case msg := <-bob.RecvCh:
+		if !bytes.Equal(msg.Body, body) {
+			t.Errorf("body mismatch: got %q want %q", msg.Body, body)
 		}
-		call := f.Call(0)
-		waitFor(t, 30*time.Second, "call sent", call.Sent)
-		waitFor(t, 30*time.Second, "alice ConvoState bootstrapped", func() bool {
-			return alice.ConvoState != nil
-		})
-		waitFor(t, 30*time.Second, "bob ConvoState bootstrapped", func() bool {
-			return bob.ConvoState != nil
-		})
-
-		// Alice sends a message; Bob receives.
-		body := []byte("hello bob")
-		if err := alice.SendMessage(body); err != nil {
-			t.Fatalf("SendMessage: %v", err)
+		if msg.FromPeer != alice.Username {
+			t.Errorf("FromPeer = %q, want %q", msg.FromPeer, alice.Username)
 		}
-		select {
-		case msg := <-bob.RecvCh:
-			if !bytes.Equal(msg.Body, body) {
-				t.Errorf("body=%q want=%q", msg.Body, body)
-			}
-		case <-time.After(60 * time.Second):
-			t.Fatal("bob never received the message")
-		}
-	*/
-	_ = bytes.Equal
-	_ = time.Now
+	case <-time.After(60 * time.Second):
+		t.Fatal("bob never received the message within 60s")
+	}
 }
 
-// TestE2EFirstMessage_ClassicalCompromise asserts the conversation
-// remains confidential if the X25519 (classical) half of the keywheel
-// session key is leaked. The PQ (ML-KEM-768) half is sufficient on its
-// own — constitutional Principle III enforcement.
-//
-// Implementation requires a keywheel API to zero out the classical
-// half (currently private). Tracked as a follow-up after Block A.
-func TestE2EFirstMessage_ClassicalCompromise(t *testing.T) {
-	t.Skip("requires keywheel API to zero out classical half (follow-up)")
+// waitFor polls condition every 250ms until it returns true or the
+// deadline expires. Used for handshake/dialing steps where the
+// natural coordinator loop takes multiple rounds to converge.
+func waitFor(t *testing.T, timeout time.Duration, label string, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("timeout waiting for %q after %s", label, timeout)
 }
 
-// TestE2EFirstMessage_PQCompromise: symmetric — PQ half compromised,
-// classical half alone still decrypts.
-func TestE2EFirstMessage_PQCompromise(t *testing.T) {
-	t.Skip("requires keywheel API to zero out PQ half (follow-up)")
+// drainDisconnects logs (via t.Logf) per-service websocket close
+// events from a TestClient.Start() Disconnects channel. The test
+// doesn't fail on disconnects directly — the assertion on RecvCh
+// will time out if a disconnect kills the flow.
+func drainDisconnects(t *testing.T, who string, ch <-chan testharness.ConnectError) {
+	for ce := range ch {
+		t.Logf("[%s] %s websocket disconnected: %v", who, ce.Service, ce.Err)
+	}
 }
