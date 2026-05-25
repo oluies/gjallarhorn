@@ -8,109 +8,132 @@ import (
 	"bytes"
 	"testing"
 	"time"
+
+	"github.com/oluies/gjallarhorn/internal/testharness"
 )
 
 // TestE2EFirstMessage drives a full add-friend → dial → first-message
 // round-trip between two TestClients (Alice and Bob) standing up a
-// fresh testharness.Harness with three mixers on each side.
+// fresh testharness.Harness.
 //
-// Currently SKIPPED: the testharness end-to-end path is gated on
-// two upstream fixes that landed in the same week as this scaffold:
+// STILL SKIPPED — one upstream blocker remains after the Phase A
+// fix-up rounds. The reference implementation below COMPILES (the
+// test body is no longer commented out) and runs to the point where
+// the Neverlur AddFriend coordinator tries to drive a real round
+// through its mock mixchain. That fails with:
 //
-//   - coordinator data race (gjallarhorn/coordinator/server.go,
-//     race between Run.loop() and updateConfigLoop() on srv.rounds).
-//     Detected by go test -race in #C3 CI output.
+//	adding onions: rpc error: code = Internal desc = cardinality
+//	violation: received no response message from non-server-
+//	streaming RPC  call=mixnet.RunRound round=2
 //
-//   - TestClient.Start() helper that connects AddFriend + Dialing +
-//     Convo websockets. The testharness wires the connections lazily
-//     on first SendFriendRequest / Call; e2e needs explicit Start so
-//     each step is observable.
+// because neverlur/mock/mix.go uses vuvuzela.io/vuvuzela/mixnet
+// (upstream Vuvuzela), whose Server.AddOnions handler is missing
+// the SendAndClose call that modern gRPC requires. We fixed the
+// same bug in github.com/oluies/gjallarhorn/mixnet (PR #8) but the
+// upstream-Vuvuzela mixnet that the Neverlur mock imports is
+// outside our module replace scope.
 //
-// Once both clear, replace the t.Skip with the body below the
-// comment.
+// The 1-mixer workaround (testharness defaultOptions
+// neverlurMixers=1) only dodges the inter-mixer AddOnions call;
+// the coordinator → mixer-0 AddOnions call still hits this bug.
 //
-// Constitutional notes: Principle II — this test exercises the full
-// hybrid keywheel pipeline end-to-end, which is the only way to gain
-// confidence that the production add-friend → dial → conversation
-// chain still derives session keys via the hybrid combiner.
+// G6 (future): fork vuvuzela.io/vuvuzela/mixnet into an
+// oluies-owned repo, apply the one-line SendAndClose fix, update
+// Neverlur's go.mod replace, then unskip this test.
+//
+// Constitutional Principle II: this test exercises the full hybrid
+// keywheel pipeline end-to-end, giving confidence that the
+// production add-friend → dial → conversation chain still derives
+// session keys via the hybrid combiner. Same code path the
+// gjallarhorn-conversation-demo binary uses for human-facing
+// smoke checks.
+//
+// Runtime budget (once unskipped): ~120-180s of coordinator rounds.
 func TestE2EFirstMessage(t *testing.T) {
-	t.Skip("requires coordinator data-race fix + TestClient.Start() helper (see comment)")
+	t.Skip("blocked on vuvuzela.io/vuvuzela/mixnet AddOnions SendAndClose fix (G6); see comment")
 
-	// Reference implementation below (compile-tested via build).
-	// When unskipping, also import testharness and uncomment.
-	/*
-		h := testharness.New(t)
-		alice := h.ClientFor(t, "alice@harness.test")
-		bob := h.ClientFor(t, "bob@harness.test")
+	h := testharness.New(t)
+	alice := h.ClientFor(t, "alice@harness.test")
+	bob := h.ClientFor(t, "bob@harness.test")
 
-		if _, err := alice.StartConvo(); err != nil {
-			t.Fatalf("alice StartConvo: %v", err)
-		}
-		if _, err := bob.StartConvo(); err != nil {
-			t.Fatalf("bob StartConvo: %v", err)
-		}
+	aliceDisc, err := alice.Start()
+	if err != nil {
+		t.Fatalf("alice.Start: %v", err)
+	}
+	bobDisc, err := bob.Start()
+	if err != nil {
+		t.Fatalf("bob.Start: %v", err)
+	}
+	t.Cleanup(alice.Stop)
+	t.Cleanup(bob.Stop)
+	go drainDisconnects(t, "alice", aliceDisc)
+	go drainDisconnects(t, "bob", bobDisc)
 
-		// Alice → Bob add-friend handshake.
-		if _, err := alice.SendFriendRequest(bob.Username, nil); err != nil {
-			t.Fatalf("SendFriendRequest: %v", err)
+	// --- Add-friend handshake -----------------------------------------------
+	if _, err := alice.SendFriendRequest(bob.Username, nil); err != nil {
+		t.Fatalf("alice SendFriendRequest: %v", err)
+	}
+	select {
+	case req := <-bob.IncomingFriendRequestCh():
+		if _, err := req.Approve(); err != nil {
+			t.Fatalf("bob Approve: %v", err)
 		}
-		select {
-		case req := <-bob.IncomingFriendRequestCh():
-			if _, err := req.Approve(); err != nil {
-				t.Fatalf("approve: %v", err)
-			}
-		case <-time.After(30 * time.Second):
-			t.Fatal("bob never received friend request")
-		}
-		waitFor(t, 30*time.Second, "alice friend confirmed", func() bool {
-			return alice.HasFriend(bob.Username)
-		})
+	case <-time.After(90 * time.Second):
+		t.Fatal("bob never received friend request within 90s")
+	}
+	waitFor(t, 90*time.Second, "alice ↔ bob friendship confirmed", func() bool {
+		return alice.HasFriend(bob.Username) && bob.HasFriend(alice.Username)
+	})
 
-		// Alice calls bob to bootstrap the conversation.
-		f, ok := lookupFriend(alice, bob.Username)
-		if !ok {
-			t.Fatal("alice has no friend bob after confirmation")
-		}
-		call := f.Call(0)
-		waitFor(t, 30*time.Second, "call sent", call.Sent)
-		waitFor(t, 30*time.Second, "alice ConvoState bootstrapped", func() bool {
-			return alice.ConvoState != nil
-		})
-		waitFor(t, 30*time.Second, "bob ConvoState bootstrapped", func() bool {
-			return bob.ConvoState != nil
-		})
+	// --- Dial: bootstrap conversation ---------------------------------------
+	f := alice.GetFriend(bob.Username)
+	if f == nil {
+		t.Fatal("alice has no Friend object for bob after confirmation")
+	}
+	_ = f.Call(0)
+	waitFor(t, 90*time.Second, "ConvoState bootstrapped on both sides", func() bool {
+		return alice.ConvoState != nil && bob.ConvoState != nil
+	})
 
-		// Alice sends a message; Bob receives.
-		body := []byte("hello bob")
-		if err := alice.SendMessage(body); err != nil {
-			t.Fatalf("SendMessage: %v", err)
+	// --- First message round-trip -------------------------------------------
+	body := []byte("hello bob")
+	if err := alice.SendMessage(body); err != nil {
+		t.Fatalf("alice SendMessage: %v", err)
+	}
+	select {
+	case msg := <-bob.RecvCh:
+		if !bytes.Equal(msg.Body, body) {
+			t.Errorf("body mismatch: got %q want %q", msg.Body, body)
 		}
-		select {
-		case msg := <-bob.RecvCh:
-			if !bytes.Equal(msg.Body, body) {
-				t.Errorf("body=%q want=%q", msg.Body, body)
-			}
-		case <-time.After(60 * time.Second):
-			t.Fatal("bob never received the message")
+		if msg.FromPeer != alice.Username {
+			t.Errorf("FromPeer = %q, want %q", msg.FromPeer, alice.Username)
 		}
-	*/
-	_ = bytes.Equal
-	_ = time.Now
+	case <-time.After(60 * time.Second):
+		t.Fatal("bob never received the message within 60s")
+	}
 }
 
-// TestE2EFirstMessage_ClassicalCompromise asserts the conversation
-// remains confidential if the X25519 (classical) half of the keywheel
-// session key is leaked. The PQ (ML-KEM-768) half is sufficient on its
-// own — constitutional Principle III enforcement.
-//
-// Implementation requires a keywheel API to zero out the classical
-// half (currently private). Tracked as a follow-up after Block A.
-func TestE2EFirstMessage_ClassicalCompromise(t *testing.T) {
-	t.Skip("requires keywheel API to zero out classical half (follow-up)")
+// waitFor polls condition every 250ms until it returns true or the
+// deadline expires. Used for handshake/dialing steps where the
+// natural coordinator loop takes multiple rounds to converge.
+func waitFor(t *testing.T, timeout time.Duration, label string, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("timeout waiting for %q after %s", label, timeout)
 }
 
-// TestE2EFirstMessage_PQCompromise: symmetric — PQ half compromised,
-// classical half alone still decrypts.
-func TestE2EFirstMessage_PQCompromise(t *testing.T) {
-	t.Skip("requires keywheel API to zero out PQ half (follow-up)")
+// drainDisconnects logs (via t.Logf) per-service websocket close
+// events from a TestClient.Start() Disconnects channel. The test
+// doesn't fail on disconnects directly — the assertion on RecvCh
+// will time out if a disconnect kills the flow.
+func drainDisconnects(t *testing.T, who string, ch <-chan testharness.ConnectError) {
+	for ce := range ch {
+		t.Logf("[%s] %s websocket disconnected: %v", who, ce.Service, ce.Err)
+	}
 }
