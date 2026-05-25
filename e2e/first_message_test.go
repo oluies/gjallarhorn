@@ -22,9 +22,9 @@ import (
 // the Neverlur AddFriend coordinator tries to drive a real round
 // through its mock mixchain. That fails with:
 //
-//   adding onions: rpc error: code = Internal desc = cardinality
-//   violation: received no response message from non-server-
-//   streaming RPC  call=mixnet.RunRound round=2
+//	adding onions: rpc error: code = Internal desc = cardinality
+//	violation: received no response message from non-server-
+//	streaming RPC  call=mixnet.RunRound round=2
 //
 // because neverlur/mock/mix.go uses vuvuzela.io/vuvuzela/mixnet
 // (upstream Vuvuzela), whose Server.AddOnions handler is missing
