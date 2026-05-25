@@ -82,6 +82,15 @@ func (c *Client) ConnectConvo() (chan error, error) {
 
 	c.mu.Lock()
 	c.conn = conn
+	// Seed convoConfig / convoConfigHash with the freshly fetched
+	// config. Without this, the first newConvoRound callback sees
+	// c.convoConfig == nil and panics inside FetchAndVerifyChain
+	// when it dereferences `have` for `have.Hash()`. The bug only
+	// surfaced once the e2e harness actually drove a real
+	// newConvoRound through the websocket; pre-e2e, the convo
+	// client never received a round.
+	c.convoConfig = convoConfig
+	c.convoConfigHash = convoConfig.Hash()
 	c.mu.Unlock()
 
 	disconnect := make(chan error, 1)
