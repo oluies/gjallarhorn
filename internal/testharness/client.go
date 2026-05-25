@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"path/filepath"
+	"time"
 	"unicode/utf8"
 
 	"github.com/oluies/gjallarhorn"
@@ -48,6 +49,12 @@ type TestClient struct {
 	// active conversation. Populated by SendingCall / ReceivedCall
 	// handler callbacks once a call bootstraps; nil before.
 	ConvoState ConvoStateAccessor
+
+	// Logf is an optional callback wired into the ConvoState's Seal/
+	// Open/DeadDrop instrumentation. Set on the TestClient before
+	// the dial completes (typically right after ClientFor returns).
+	// Used to debug keywheel-sync issues across alice/bob.
+	Logf func(format string, args ...any)
 
 	// convoHandler routes Outgoing()/Replies()/Error() events from
 	// the Gjallarhorn convo client back into this TestClient's
@@ -152,10 +159,20 @@ func (h *Harness) ClientFor(tb TB, username string) *TestClient {
 	// Gjallarhorn-side convo client. Not connected until
 	// StartConvo() is called by the test (the websocket only
 	// makes sense after AddFriend + dial have run).
+	//
+	// CoordinatorLatency: the gjallarhorn client sleeps until
+	// EndTime - CoordinatorLatency - 10ms before sealing onions,
+	// then bails if less than 10ms remains. Default
+	// CoordinatorLatency=0 leaves only ~10ms for Outgoing+Seal+
+	// onionbox+Send, which is too tight under -race / loaded CI
+	// (every round gets abandoned, no onions reach the
+	// coordinator). 500ms gives ample slack; tests' RoundDelay=2s
+	// still leaves plenty of round time.
 	tc.ConvoClient = &gjallarhorn.Client{
-		PersistPath:  filepath.Join(clientDir, "convo-client"),
-		ConfigClient: h.neverlurCfgClient,
-		Handler:      tc.convoHandler,
+		PersistPath:        filepath.Join(clientDir, "convo-client"),
+		ConfigClient:       h.neverlurCfgClient,
+		Handler:            tc.convoHandler,
+		CoordinatorLatency: 500 * time.Millisecond,
 	}
 
 	return tc
@@ -336,14 +353,24 @@ func (h *testClientHandler) SendingCall(call *neverlur.OutgoingCall) {
 		// will retry. Nothing to bootstrap.
 		return
 	}
-	h.tc.ConvoState = newHarnessConvoState(seedKey, seedRound, h.tc.Username, call.Username)
+	state := newHarnessConvoState(seedKey, seedRound, h.tc.Username, call.Username)
+	state.Logf = h.tc.Logf
+	if h.tc.Logf != nil {
+		h.tc.Logf("[%s] SendingCall peer=%s seedRound=%d seedKey=%x", h.tc.Username, call.Username, seedRound, seedKey[:8])
+	}
+	h.tc.ConvoState = state
 }
 
 func (h *testClientHandler) ReceivedCall(call *neverlur.IncomingCall) {
 	if call.SessionKey == nil || call.Round == 0 {
 		return
 	}
-	h.tc.ConvoState = newHarnessConvoState(call.SessionKey, call.Round, h.tc.Username, call.Username)
+	state := newHarnessConvoState(call.SessionKey, call.Round, h.tc.Username, call.Username)
+	state.Logf = h.tc.Logf
+	if h.tc.Logf != nil {
+		h.tc.Logf("[%s] ReceivedCall peer=%s seedRound=%d seedKey=%x", h.tc.Username, call.Username, call.Round, call.SessionKey[:8])
+	}
+	h.tc.ConvoState = state
 }
 
 func (h *testClientHandler) NewConfig(chain []*config.SignedConfig) {
