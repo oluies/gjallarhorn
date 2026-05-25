@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"path/filepath"
+	"time"
 	"unicode/utf8"
 
 	"github.com/oluies/gjallarhorn"
@@ -158,10 +159,20 @@ func (h *Harness) ClientFor(tb TB, username string) *TestClient {
 	// Gjallarhorn-side convo client. Not connected until
 	// StartConvo() is called by the test (the websocket only
 	// makes sense after AddFriend + dial have run).
+	//
+	// CoordinatorLatency: the gjallarhorn client sleeps until
+	// EndTime - CoordinatorLatency - 10ms before sealing onions,
+	// then bails if less than 10ms remains. Default
+	// CoordinatorLatency=0 leaves only ~10ms for Outgoing+Seal+
+	// onionbox+Send, which is too tight under -race / loaded CI
+	// (every round gets abandoned, no onions reach the
+	// coordinator). 500ms gives ample slack; tests' RoundDelay=2s
+	// still leaves plenty of round time.
 	tc.ConvoClient = &gjallarhorn.Client{
-		PersistPath:  filepath.Join(clientDir, "convo-client"),
-		ConfigClient: h.neverlurCfgClient,
-		Handler:      tc.convoHandler,
+		PersistPath:        filepath.Join(clientDir, "convo-client"),
+		ConfigClient:       h.neverlurCfgClient,
+		Handler:            tc.convoHandler,
+		CoordinatorLatency: 500 * time.Millisecond,
 	}
 
 	return tc
