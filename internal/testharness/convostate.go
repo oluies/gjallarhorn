@@ -32,6 +32,12 @@ type harnessConvoState struct {
 	peerUsername string
 	myUsername   string
 
+	// Logf is an optional callback for per-operation diagnostics
+	// (Seal/Open/DeadDrop). Set by ClientFor when the TestClient
+	// has a *testing.T attached; nil-safe — when nil, no logging.
+	// Used to debug keywheel-sync issues across alice/bob.
+	Logf func(format string, args ...any)
+
 	mu              sync.Mutex
 	sessionKey      *[32]byte
 	sessionKeyRound uint32
@@ -46,6 +52,13 @@ func newHarnessConvoState(seedKey *[32]byte, seedRound uint32, myUsername, peerU
 		sessionKey:      keyCopy,
 		sessionKeyRound: seedRound,
 	}
+}
+
+func (c *harnessConvoState) logf(format string, args ...any) {
+	if c.Logf == nil {
+		return
+	}
+	c.Logf(format, args...)
 }
 
 // SessionKey returns the seed session key. Use rollKeyTo to derive
@@ -108,6 +121,7 @@ func (c *harnessConvoState) rollKeyTo(targetRound uint32) *[32]byte {
 func (c *harnessConvoState) Seal(plaintext []byte, round uint32) ([]byte, bool) {
 	roundKey := c.rollKeyTo(round)
 	if roundKey == nil {
+		c.logf("[%s->%s] Seal round=%d FAIL rollKey nil (seedRound=%d)", c.myUsername, c.peerUsername, round, c.sessionKeyRound)
 		return nil, false
 	}
 
@@ -116,7 +130,9 @@ func (c *harnessConvoState) Seal(plaintext []byte, round uint32) ([]byte, bool) 
 	nameHash := sha256.Sum256([]byte(c.peerUsername))
 	copy(nonce[4:], nameHash[:16])
 
-	return secretbox.Seal(nil, plaintext, &nonce, roundKey), true
+	ct := secretbox.Seal(nil, plaintext, &nonce, roundKey)
+	c.logf("[%s->%s] Seal round=%d roundKey=%x nonce=%x ct[:8]=%x", c.myUsername, c.peerUsername, round, roundKey[:8], nonce[:8], ct[:min(8, len(ct))])
+	return ct, true
 }
 
 // Open decrypts a ciphertext addressed to this client for the given
@@ -124,6 +140,7 @@ func (c *harnessConvoState) Seal(plaintext []byte, round uint32) ([]byte, bool) 
 func (c *harnessConvoState) Open(ciphertext []byte, round uint32) ([]byte, bool) {
 	roundKey := c.rollKeyTo(round)
 	if roundKey == nil {
+		c.logf("[%s<-%s] Open round=%d FAIL rollKey nil (seedRound=%d)", c.myUsername, c.peerUsername, round, c.sessionKeyRound)
 		return nil, false
 	}
 
@@ -132,7 +149,13 @@ func (c *harnessConvoState) Open(ciphertext []byte, round uint32) ([]byte, bool)
 	nameHash := sha256.Sum256([]byte(c.myUsername))
 	copy(nonce[4:], nameHash[:16])
 
-	return secretbox.Open(nil, ciphertext, &nonce, roundKey)
+	pt, ok := secretbox.Open(nil, ciphertext, &nonce, roundKey)
+	if !ok {
+		c.logf("[%s<-%s] Open round=%d FAIL roundKey=%x nonce=%x ct[:8]=%x", c.myUsername, c.peerUsername, round, roundKey[:8], nonce[:8], ciphertext[:min(8, len(ciphertext))])
+		return nil, false
+	}
+	c.logf("[%s<-%s] Open round=%d OK roundKey=%x nonce=%x pt[:8]=%x", c.myUsername, c.peerUsername, round, roundKey[:8], nonce[:8], pt[:min(8, len(pt))])
+	return pt, true
 }
 
 // DeadDrop derives the dead-drop ID for the given round. Both peers
@@ -150,5 +173,6 @@ func (c *harnessConvoState) DeadDrop(round uint32) (convo.DeadDrop, bool) {
 	_ = binary.Write(h, binary.BigEndian, round)
 	r := h.Sum(nil)
 	copy(id[:], r)
+	c.logf("[%s<->%s] DeadDrop round=%d roundKey=%x drop=%x", c.myUsername, c.peerUsername, round, roundKey[:8], id[:8])
 	return id, true
 }

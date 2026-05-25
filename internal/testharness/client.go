@@ -49,6 +49,12 @@ type TestClient struct {
 	// handler callbacks once a call bootstraps; nil before.
 	ConvoState ConvoStateAccessor
 
+	// Logf is an optional callback wired into the ConvoState's Seal/
+	// Open/DeadDrop instrumentation. Set on the TestClient before
+	// the dial completes (typically right after ClientFor returns).
+	// Used to debug keywheel-sync issues across alice/bob.
+	Logf func(format string, args ...any)
+
 	// convoHandler routes Outgoing()/Replies()/Error() events from
 	// the Gjallarhorn convo client back into this TestClient's
 	// channels and outgoing message queue.
@@ -336,14 +342,24 @@ func (h *testClientHandler) SendingCall(call *neverlur.OutgoingCall) {
 		// will retry. Nothing to bootstrap.
 		return
 	}
-	h.tc.ConvoState = newHarnessConvoState(seedKey, seedRound, h.tc.Username, call.Username)
+	state := newHarnessConvoState(seedKey, seedRound, h.tc.Username, call.Username)
+	state.Logf = h.tc.Logf
+	if h.tc.Logf != nil {
+		h.tc.Logf("[%s] SendingCall peer=%s seedRound=%d seedKey=%x", h.tc.Username, call.Username, seedRound, seedKey[:8])
+	}
+	h.tc.ConvoState = state
 }
 
 func (h *testClientHandler) ReceivedCall(call *neverlur.IncomingCall) {
 	if call.SessionKey == nil || call.Round == 0 {
 		return
 	}
-	h.tc.ConvoState = newHarnessConvoState(call.SessionKey, call.Round, h.tc.Username, call.Username)
+	state := newHarnessConvoState(call.SessionKey, call.Round, h.tc.Username, call.Username)
+	state.Logf = h.tc.Logf
+	if h.tc.Logf != nil {
+		h.tc.Logf("[%s] ReceivedCall peer=%s seedRound=%d seedKey=%x", h.tc.Username, call.Username, call.Round, call.SessionKey[:8])
+	}
+	h.tc.ConvoState = state
 }
 
 func (h *testClientHandler) NewConfig(chain []*config.SignedConfig) {

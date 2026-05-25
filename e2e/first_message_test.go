@@ -46,11 +46,16 @@ import (
 // state on the two sides doesn't actually converge to the same
 // shared secret per (peer, round) tuple.
 func TestE2EFirstMessage(t *testing.T) {
-	t.Skip("blocked on keywheel sync investigation (G7); see comment")
+	// G7 debug branch: instrumentation on; test unskipped to capture
+	// CI logs of alice's and bob's per-round Seal/Open/DeadDrop key
+	// material. Compare on success of the run to find where they
+	// diverge.
 
 	h := testharness.New(t)
 	alice := h.ClientFor(t, "alice@harness.test")
 	bob := h.ClientFor(t, "bob@harness.test")
+	alice.Logf = t.Logf
+	bob.Logf = t.Logf
 
 	aliceDisc, err := alice.Start()
 	if err != nil {
